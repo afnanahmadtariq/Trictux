@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,11 @@ import {
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
 
 const clients = [
   {
@@ -107,8 +112,141 @@ export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedPriority, setSelectedPriority] = useState("All")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [clientDialogOpen, setClientDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [clientList, setClientList] = useState(clients)
+  const { toast } = useToast()
 
-  const filteredClients = clients.filter((client) => {
+  // Fetch clients from the database on page load
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/clients')
+        const data = await response.json()
+        
+        if (response.ok && data.clients) {
+          // If we have clients from the API, use them
+          if (data.clients.length > 0) {
+            setClientList(data.clients)
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch clients. Using demo data.",
+            variant: "destructive"
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching clients:', error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch clients. Using demo data.",
+          variant: "destructive"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchClients()
+  }, [])
+
+  const [newClient, setNewClient] = useState({
+    name: "",
+    industry: "",
+    priority: "Medium",
+    contactPerson: "",
+    email: "",
+    phone: "",
+    location: "",
+    notes: ""
+  })
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setNewClient({
+      ...newClient,
+      [name]: value
+    })
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setNewClient({
+      ...newClient,
+      [name]: value
+    })
+  }
+
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validate form
+    if (!newClient.name || !newClient.industry || !newClient.contactPerson || !newClient.email) {
+      toast({
+        title: "Missing information",
+        description: "Please fill all required fields.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      
+      // Save client to database via API
+      const response = await fetch("/api/clients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newClient),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Client added",
+          description: `${newClient.name} has been added successfully.`
+        })
+        
+        // Add the new client to the list without needing a full page refresh
+        setClientList([...clientList, data.client])
+        
+        // Close the dialog and reset form
+        setClientDialogOpen(false)
+        setNewClient({
+          name: "",
+          industry: "",
+          priority: "Medium",
+          contactPerson: "",
+          email: "",
+          phone: "",
+          location: "",
+          notes: ""
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to add client. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      })
+      console.error("Error adding client:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const filteredClients = clientList.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.industry.toLowerCase().includes(searchTerm.toLowerCase())
@@ -116,9 +254,9 @@ export default function ClientsPage() {
     return matchesSearch && matchesPriority
   })
 
-  const totalValue = clients.reduce((sum, client) => sum + client.totalValue, 0)
-  const avgSatisfaction = clients.reduce((sum, client) => sum + client.satisfaction, 0) / clients.length
-  const totalActiveProjects = clients.reduce((sum, client) => sum + client.activeProjects, 0)
+  const totalValue = clientList.reduce((sum, client) => sum + client.totalValue, 0)
+  const avgSatisfaction = clientList.reduce((sum, client) => sum + client.satisfaction, 0) / clientList.length
+  const totalActiveProjects = clientList.reduce((sum, client) => sum + client.activeProjects, 0)
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -130,10 +268,138 @@ export default function ClientsPage() {
               <h1 className="text-2xl font-bold text-slate-900">Client Management</h1>
               <p className="text-slate-600 mt-1">Manage relationships and track project history</p>
             </div>
-            <Button className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600">
-              <Plus className="h-4 w-4" />
-              Add Client
-            </Button>
+            <Dialog open={clientDialogOpen} onOpenChange={setClientDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600">
+                  <Plus className="h-4 w-4" />
+                  Add Client
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <form onSubmit={handleAddClient}>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-blue-600" />
+                      Add New Client
+                    </DialogTitle>
+                    <DialogDescription>
+                      Add a new client to your management system. Fill in the details below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Client Name <span className="text-red-500">*</span></Label>
+                        <Input 
+                          id="name" 
+                          name="name" 
+                          value={newClient.name}
+                          onChange={handleInputChange}
+                          placeholder="Enter client name"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="industry">Industry <span className="text-red-500">*</span></Label>
+                        <Input 
+                          id="industry" 
+                          name="industry" 
+                          value={newClient.industry}
+                          onChange={handleInputChange}
+                          placeholder="Enter industry"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="priority">Priority</Label>
+                      <Select 
+                        value={newClient.priority} 
+                        onValueChange={(value) => handleSelectChange("priority", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contactPerson">Contact Person <span className="text-red-500">*</span></Label>
+                      <Input 
+                        id="contactPerson" 
+                        name="contactPerson"
+                        value={newClient.contactPerson}
+                        onChange={handleInputChange}
+                        placeholder="Enter contact person name"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                        <Input 
+                          id="email" 
+                          name="email"
+                          type="email" 
+                          value={newClient.email}
+                          onChange={handleInputChange}
+                          placeholder="Enter email address"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input 
+                          id="phone" 
+                          name="phone" 
+                          value={newClient.phone}
+                          onChange={handleInputChange}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input 
+                        id="location" 
+                        name="location"
+                        value={newClient.location}
+                        onChange={handleInputChange}
+                        placeholder="City, Country"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Notes</Label>
+                      <Textarea 
+                        id="notes" 
+                        name="notes"
+                        value={newClient.notes}
+                        onChange={handleInputChange}
+                        placeholder="Additional information about the client"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setClientDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="bg-gradient-to-r from-blue-500 to-purple-600"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Adding..." : "Add Client"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
@@ -150,7 +416,7 @@ export default function ClientsPage() {
                     <Users className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-slate-900">{clients.length}</p>
+                    <p className="text-2xl font-bold text-slate-900">{clientList.length}</p>
                     <p className="text-sm text-slate-600">Total Clients</p>
                   </div>
                 </div>
@@ -235,8 +501,33 @@ export default function ClientsPage() {
           </Card>
 
           {/* Client List */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredClients.map((client) => (
+          {isLoading ? (
+            <div className="flex justify-center items-center p-12 bg-white border border-slate-200 rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+                <p className="text-slate-600">Loading clients...</p>
+              </div>
+            </div>
+          ) : filteredClients.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 bg-white border border-slate-200 rounded-lg text-center">
+              <Users className="h-12 w-12 text-slate-400 mb-4" />
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No clients found</h3>
+              <p className="text-slate-600 mb-6 max-w-md">
+                {searchTerm || selectedPriority !== "All"
+                  ? "Try adjusting your search or filter criteria."
+                  : "You haven't added any clients yet. Click the 'Add Client' button to get started."}
+              </p>
+              <Button 
+                className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600"
+                onClick={() => setClientDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Add Client
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredClients.map((client) => (
               <Card key={client.id} className="border-slate-200 hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -334,7 +625,8 @@ export default function ClientsPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

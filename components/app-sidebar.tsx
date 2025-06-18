@@ -48,15 +48,7 @@ const navigationItems = [
   {
     title: "Client Management",
     items: [
-      {
-        title: "Clients",
-        url: "/clients",
-        icon: Users,
-        subItems: [
-          { title: "All Clients", url: "/clients" },
-          { title: "Add Client", url: "/clients/add" },
-        ],
-      },
+      { title: "Clients", url: "/clients", icon: Users },
     ],
   },
   {
@@ -78,17 +70,7 @@ const navigationItems = [
   {
     title: "Company Network",
     items: [
-      {
-        title: "Companies",
-        url: "/companies",
-        icon: Building2,
-        subItems: [
-          { title: "Overview", url: "/companies" },
-          { title: "Performance", url: "/companies/performance" },
-          { title: "Workload", url: "/companies/workload" },
-          { title: "Skills Matrix", url: "/companies/skills" },
-        ],
-      },
+      { title: "Companies", url: "/companies", icon: Building2 },
     ],
   },
   {

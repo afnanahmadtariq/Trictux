@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,12 @@ export default function SignupPage() {
     email: "",
     password: "",
     userType: "",
+    name: "",            // For owner
+    companyName: "",     // For company
+    contactPerson: "",   // For company
+    fullName: "",        // For employee
+    position: "",        // For employee
+    department: ""       // For employee
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -32,6 +38,17 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Basic validation
+    if (!formData.email || !formData.password || !formData.userType) {
+      toast({
+        title: "Missing information",
+        description: "Please fill all required fields.",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!validatePassword(formData.password)) {
       toast({
         title: "Weak password",
@@ -39,9 +56,37 @@ export default function SignupPage() {
           "Password must be at least 8 characters, include uppercase, lowercase, number, and special character.",
         variant: "destructive",
       })
-      setIsLoading(false)
       return
     }
+
+    // Type-specific validation
+    if (formData.userType === "owner" && !formData.name) {
+      toast({
+        title: "Missing information",
+        description: "Please enter your name.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (formData.userType === "company" && (!formData.companyName || !formData.contactPerson)) {
+      toast({
+        title: "Missing information",
+        description: "Please enter company name and contact person.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (formData.userType === "employee" && !formData.fullName) {
+      toast({
+        title: "Missing information",
+        description: "Please enter your full name.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(true)
     try {
       const res = await fetch("/api/auth/signup", {
@@ -71,9 +116,43 @@ export default function SignupPage() {
         description: "An unexpected error occurred.",
         variant: "destructive",
       })
+      console.error(err)
     }
     setIsLoading(false)
   }
+
+  // Clear irrelevant fields when userType changes
+  useEffect(() => {
+    let updatedFormData = { ...formData }
+    
+    if (formData.userType === "owner") {
+      updatedFormData = {
+        ...updatedFormData,
+        companyName: "",
+        contactPerson: "",
+        fullName: "",
+        position: "",
+        department: ""
+      }
+    } else if (formData.userType === "company") {
+      updatedFormData = {
+        ...updatedFormData,
+        name: "",
+        fullName: "",
+        position: "",
+        department: ""
+      }
+    } else if (formData.userType === "employee") {
+      updatedFormData = {
+        ...updatedFormData,
+        name: "",
+        companyName: "",
+        contactPerson: ""
+      }
+    }
+    
+    setFormData(updatedFormData)
+  }, [formData.userType])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
@@ -126,6 +205,9 @@ export default function SignupPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+              </p>
             </div>
             <div>
               <Label htmlFor="userType">User Type</Label>
@@ -143,6 +225,81 @@ export default function SignupPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Owner specific fields */}
+            {formData.userType === "owner" && (
+              <div>
+                <Label htmlFor="name">Your Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+            )}
+
+            {/* Company specific fields */}
+            {formData.userType === "company" && (
+              <>
+                <div>
+                  <Label htmlFor="companyName">Company Name</Label>
+                  <Input
+                    id="companyName"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    placeholder="Enter company name"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="contactPerson">Contact Person</Label>
+                  <Input
+                    id="contactPerson"
+                    value={formData.contactPerson}
+                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    placeholder="Enter contact person's name"
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Employee specific fields */}
+            {formData.userType === "employee" && (
+              <>
+                <div>
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    placeholder="Enter your full name"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="position">Position (Optional)</Label>
+                  <Input
+                    id="position"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    placeholder="Enter your position"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="department">Department (Optional)</Label>
+                  <Input
+                    id="department"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    placeholder="Enter your department"
+                  />
+                </div>
+              </>
+            )}
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing up..." : "Sign Up"}
             </Button>
@@ -155,6 +312,5 @@ export default function SignupPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
-  )
+    </div>  )
 }

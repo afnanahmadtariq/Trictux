@@ -36,7 +36,7 @@ const navigationItems = [
     title: "Team",
     items: [
       { title: "Team Members", url: "/company-dashboard/team", icon: Users },
-      { title: "Client Communication", url: "/company-dashboard/clients", icon: MessageSquare },
+      { title: "Clients", url: "/company-dashboard/clients", icon: MessageSquare },
     ],
   },
   {

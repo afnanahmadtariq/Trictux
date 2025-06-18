@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,7 +23,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const companies = [
+// Company data
+const companiesData = [
 	{
 		id: "COMP-B",
 		name: "Company B",
@@ -92,6 +93,9 @@ const companies = [
 export default function CompaniesPage() {
 	const { toast } = useToast()
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [companies, setCompanies] = useState(companiesData)
   const [newCompany, setNewCompany] = useState({
     name: "",
     location: "",
@@ -100,6 +104,41 @@ export default function CompaniesPage() {
     description: ""
   })
   const [specialty, setSpecialty] = useState("")
+
+  // Fetch companies from the database on page load
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/companies')
+        const data = await response.json()
+        
+        if (response.ok && data.companies) {
+          // If we have companies from the API, use them
+          if (data.companies.length > 0) {
+            setCompanies(data.companies)
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch companies. Using demo data.",
+            variant: "destructive"
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching companies:', error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch companies. Using demo data.",
+          variant: "destructive"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCompanies()
+  }, [])
 
   const addSpecialty = () => {
     if (specialty && !newCompany.specialties.includes(specialty)) {
@@ -126,7 +165,7 @@ export default function CompaniesPage() {
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Validate form
@@ -139,21 +178,75 @@ export default function CompaniesPage() {
       return
     }
 
-    // Here you would typically save the company to the database
-    toast({
-      title: "Company added",
-      description: `${newCompany.name} has been added successfully.`
-    })
-
-    // Close the dialog and reset form
-    setCompanyDialogOpen(false)
-    setNewCompany({
-      name: "",
-      location: "",
-      teamSize: "",
-      specialties: [],
-      description: ""
-    })
+    try {
+      // Set loading state
+      setIsSubmitting(true)
+      
+      // Save company to database via API
+      const response = await fetch("/api/companies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newCompany),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Company added",
+          description: `${newCompany.name} has been added successfully.`
+        })
+        
+        // Add the new company to the list without needing a full page refresh
+        // This is a simplification - in production you might want to fetch the full list again
+        const newCompanyWithDefaults = {
+          id: data.company.id,
+          name: data.company.name,
+          location: data.company.location,
+          specialties: data.company.specialties,
+          currentWorkload: data.company.currentWorkload,
+          successRate: data.company.successRate,
+          avgDeliveryTime: data.company.avgDeliveryTime,
+          activeProjects: data.company.activeProjects,
+          completedProjects: data.company.completedProjects,
+          teamSize: data.company.teamSize,
+          rating: data.company.rating,
+          lastDelivery: "N/A",
+          revenue: data.company.revenue,
+          status: data.company.status,
+          joinDate: data.company.joinDate,
+        }
+        
+        setCompanies([...companies, newCompanyWithDefaults])
+        
+        // Close the dialog and reset form
+        setCompanyDialogOpen(false)
+        setNewCompany({
+          name: "",
+          location: "",
+          teamSize: "",
+          specialties: [],
+          description: ""
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to add company. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      })
+      console.error("Error adding company:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
 	const totalRevenue = companies.reduce(
@@ -338,8 +431,12 @@ export default function CompaniesPage() {
                       <Button type="button" variant="outline" onClick={() => setCompanyDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button type="submit" className="bg-gradient-to-r from-blue-500 to-purple-600">
-                        Add Company
+                      <Button 
+                        type="submit" 
+                        className="bg-gradient-to-r from-blue-500 to-purple-600"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Adding..." : "Add Company"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -435,8 +532,30 @@ export default function CompaniesPage() {
 						</TabsList>
 
 						<TabsContent value="overview" className="space-y-6">
-							<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-								{companies.map((company) => (
+							{isLoading ? (
+								<div className="flex justify-center items-center py-12">
+									<div className="flex flex-col items-center gap-2">
+										<div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+										<p className="text-slate-600">Loading companies...</p>
+									</div>
+								</div>
+							) : companies.length === 0 ? (
+								<div className="flex flex-col items-center justify-center py-12 text-center">
+									<Building2 className="h-12 w-12 text-slate-400 mb-4" />
+									<h3 className="text-lg font-medium text-slate-900 mb-1">No companies yet</h3>
+									<p className="text-slate-600 mb-6 max-w-md">
+										You haven't added any partner companies yet. Click the "Add Company" button to get started.
+									</p>
+									<Button 
+										className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600"
+										onClick={handleAddCompany}
+									>
+										<Building2 className="h-4 w-4" />
+										Add Company
+									</Button>
+								</div>
+							) : (
+								<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">{companies.map((company) => (
 									<Card
 										key={company.id}
 										className="border-slate-200 hover:shadow-lg transition-all duration-200"
@@ -544,7 +663,8 @@ export default function CompaniesPage() {
 										</CardContent>
 									</Card>
 								))}
-							</div>
+								</div>
+							)}
 						</TabsContent>
 
 						<TabsContent value="performance" className="space-y-6">
