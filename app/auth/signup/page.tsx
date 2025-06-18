@@ -10,6 +10,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Zap, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Toaster } from "@/components/ui/toaster"
+import { useToast } from "@/hooks/use-toast"
+
+function validatePassword(password: string) {
+  // At least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(password)
+}
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -20,9 +27,20 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validatePassword(formData.password)) {
+      toast({
+        title: "Weak password",
+        description:
+          "Password must be at least 8 characters, include uppercase, lowercase, number, and special character.",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     try {
       const res = await fetch("/api/auth/signup", {
@@ -32,18 +50,33 @@ export default function SignupPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        router.push("/auth/login")
+        toast({
+          title: "Signup successful!",
+          description: "Account created. Please log in.",
+        })
+        setTimeout(() => {
+          router.push("/auth/login")
+        }, 1200)
       } else {
-        alert(data.error || "Signup failed")
+        toast({
+          title: "Signup failed",
+          description: data.error || "Could not create account.",
+          variant: "destructive",
+        })
       }
     } catch (err) {
-      alert("Signup failed")
+      toast({
+        title: "Signup failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      })
     }
     setIsLoading(false)
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <Toaster />
       <Card className="w-full max-w-md border-slate-200">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">

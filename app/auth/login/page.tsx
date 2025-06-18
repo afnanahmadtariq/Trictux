@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Zap, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Toaster } from "@/components/ui/toaster"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -20,6 +22,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,23 +43,38 @@ export default function LoginPage() {
             role: data.user.userType,
           }),
         )
+        toast({
+          title: "Login successful!",
+          description: "Welcome back! Redirecting...",
+        })
         const redirectMap = {
           owner: "/",
           company: "/company-dashboard",
           employee: "/employee-dashboard",
         }
-        router.push(redirectMap[data.user.userType as keyof typeof redirectMap] || "/")
+        setTimeout(() => {
+          router.push(redirectMap[data.user.userType as keyof typeof redirectMap] || "/")
+        }, 1200)
       } else {
-        alert(data.error || "Login failed")
+        toast({
+          title: "Login failed",
+          description: data.error || "Invalid credentials",
+          variant: "destructive",
+        })
       }
     } catch (err) {
-      alert("Login failed")
+      toast({
+        title: "Login failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      })
     }
     setIsLoading(false)
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <Toaster />
       <Card className="w-full max-w-md border-slate-200">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
