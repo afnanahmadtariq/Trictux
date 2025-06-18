@@ -12,6 +12,7 @@ import { Zap, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -144,6 +145,10 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+          <div className="mt-4 text-center text-sm text-slate-600">
+            Don&apos;t have an account?{' '}
+            <Link href="/auth/signup" className="text-blue-600 hover:underline">Sign up</Link>
+          </div>
         </CardContent>
       </Card>
     </div>

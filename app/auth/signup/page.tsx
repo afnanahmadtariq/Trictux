@@ -12,6 +12,7 @@ import { Zap, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 function validatePassword(password: string) {
   // At least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
@@ -146,6 +147,12 @@ export default function SignupPage() {
               {isLoading ? "Signing up..." : "Sign Up"}
             </Button>
           </form>
+          <div className="mt-4 text-center text-sm text-slate-600">
+            Already have an account?{" "}
+            <Link href="/auth/login" className="text-blue-600 hover:underline">
+              Log in
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
