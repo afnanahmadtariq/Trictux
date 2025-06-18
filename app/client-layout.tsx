@@ -8,62 +8,32 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { CompanySidebar } from "@/components/company-sidebar"
 import { EmployeeSidebar } from "@/components/employee-sidebar"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { AuthProvider, useAuth } from "@/contexts/auth-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+// Wrapper component that uses auth context after it's created
+function ClientLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    // Check if user is authenticated
-    const user = localStorage.getItem("user")
-    if (user) {
-      const userData = JSON.parse(user)
-      setUserRole(userData.role)
-    }
-    setIsLoading(false)
-  }, [])
+  const { user, loading } = useAuth()
 
   // Don't show sidebar on auth pages
   const isAuthPage = pathname.startsWith("/auth")
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <html lang="en">
-        <body className={inter.className}>
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        </body>
-      </html>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     )
   }
 
   if (isAuthPage) {
-    return (
-      <html lang="en">
-        <body className={inter.className}>{children}</body>
-      </html>
-    )
-  }
-
-  // Redirect to login if not authenticated
-  if (!userRole && !isAuthPage) {
-    if (typeof window !== "undefined") {
-      window.location.href = "/auth/login"
-    }
-    return null
+    return children
   }
 
   const getSidebar = () => {
-    switch (userRole) {
+    switch (user?.userType) {
       case "owner":
         return <AppSidebar />
       case "company":
@@ -76,15 +46,23 @@ export default function ClientLayout({
   }
 
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <SidebarProvider>
-          {getSidebar()}
-          <SidebarInset>
-            <main className="flex-1 overflow-auto">{children}</main>
-          </SidebarInset>
-        </SidebarProvider>
-      </body>
-    </html>
+    <SidebarProvider>
+      {getSidebar()}
+      <SidebarInset>
+        <main className="flex-1 overflow-auto">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <AuthProvider>
+      <ClientLayoutContent>{children}</ClientLayoutContent>
+    </AuthProvider>
   )
 }

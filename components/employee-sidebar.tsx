@@ -2,7 +2,7 @@
 
 import type * as React from "react"
 import { usePathname } from "next/navigation"
-import { User, Target, CheckCircle, MessageSquare, Settings, Search, Home, Clock, LogOut } from "lucide-react"
+import { User, Target, CheckCircle, MessageSquare, Search, Home, Clock, LogOut } from "lucide-react"
 
 import {
   Sidebar,
@@ -36,10 +36,6 @@ const navigationItems = [
   {
     title: "Communication",
     items: [{ title: "Team Chat", url: "/employee-dashboard/chat", icon: MessageSquare }],
-  },
-  {
-    title: "System",
-    items: [{ title: "Settings", url: "/employee-dashboard/settings", icon: Settings }],
   },
 ]
 

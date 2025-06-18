@@ -6,7 +6,6 @@ import {
   Building2,
   Users,
   FolderKanban,
-  BarChart3,
   Settings,
   Zap,
   Clock,
@@ -42,7 +41,6 @@ const navigationItems = [
     title: "Dashboard",
     items: [
       { title: "Overview", url: "/", icon: Home },
-      { title: "Analytics", url: "/analytics", icon: BarChart3 },
     ],
   },
   {

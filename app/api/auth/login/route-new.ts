@@ -53,17 +53,28 @@ export async function POST(req: NextRequest) {
       { expiresIn: '7d' }
     );
     
+    // Get the user's name from their profile
+    let name = email.split('@')[0]; // Default to username part of email
+    if (profile) {
+      if (user.userType === "owner") {
+        name = profile.name;
+      } else if (user.userType === "company") {
+        name = profile.companyName;
+      } else if (user.userType === "employee") {
+        name = profile.fullName;
+      }
+    }
+    
     // Set cookie in the response
     const response = NextResponse.json({
       success: true,
       user: {
         email: user.email,
         userType: user.userType,
-        name: profile?.name || profile?.companyName || profile?.fullName || email.split('@')[0]
+        name: name
       }
     });
     
-    // Set the auth token cookie
     response.cookies.set({
       name: 'auth_token',
       value: token,
