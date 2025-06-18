@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Slider } from "@/components/ui/slider"
+import { Separator } from "@/components/ui/separator"
 import {
   FolderKanban,
   Plus,
@@ -23,6 +28,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  X,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
@@ -146,9 +152,56 @@ export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("All")
   const [selectedPriority, setSelectedPriority] = useState("All")
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  
+  // Advanced filter states
+  const [selectedCompany, setSelectedCompany] = useState("All")
+  const [selectedClient, setSelectedClient] = useState("All")
+  const [selectedRisk, setSelectedRisk] = useState("All")
+  const [budgetRange, setBudgetRange] = useState([0, 200000])
+  const [progressRange, setProgressRange] = useState([0, 100])
+  const [teamSizeRange, setTeamSizeRange] = useState([1, 10])
+  const [startDateFrom, setStartDateFrom] = useState("")
+  const [startDateTo, setStartDateTo] = useState("")
+  const [endDateFrom, setEndDateFrom] = useState("")
+  const [endDateTo, setEndDateTo] = useState("")
 
   const statuses = ["All", "Planning", "In Progress", "Testing", "Blocked", "Deploying", "Completed"]
   const priorities = ["All", "Critical", "High", "Medium", "Low"]
+  const risks = ["All", "Low", "Medium", "High"]
+  
+  // Extract unique companies and clients from projects
+  const companies = ["All", ...Array.from(new Set(projects.map(p => p.company.name)))]
+  const clients = ["All", ...Array.from(new Set(projects.map(p => p.client.name)))]
+
+  const clearAdvancedFilters = () => {
+    setSelectedCompany("All")
+    setSelectedClient("All")
+    setSelectedRisk("All")
+    setBudgetRange([0, 200000])
+    setProgressRange([0, 100])
+    setTeamSizeRange([1, 10])
+    setStartDateFrom("")
+    setStartDateTo("")
+    setEndDateFrom("")
+    setEndDateTo("")
+  }
+
+  const hasActiveAdvancedFilters = () => {
+    return selectedCompany !== "All" ||
+           selectedClient !== "All" ||
+           selectedRisk !== "All" ||
+           budgetRange[0] !== 0 ||
+           budgetRange[1] !== 200000 ||
+           progressRange[0] !== 0 ||
+           progressRange[1] !== 100 ||
+           teamSizeRange[0] !== 1 ||
+           teamSizeRange[1] !== 10 ||
+           startDateFrom !== "" ||
+           startDateTo !== "" ||
+           endDateFrom !== "" ||
+           endDateTo !== ""
+  }
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
@@ -157,7 +210,36 @@ export default function ProjectsPage() {
       project.company.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = selectedStatus === "All" || project.status === selectedStatus
     const matchesPriority = selectedPriority === "All" || project.priority === selectedPriority
-    return matchesSearch && matchesStatus && matchesPriority
+    
+    // Advanced filters
+    const matchesCompany = selectedCompany === "All" || project.company.name === selectedCompany
+    const matchesClient = selectedClient === "All" || project.client.name === selectedClient
+    const matchesRisk = selectedRisk === "All" || project.risk === selectedRisk
+    const matchesBudget = project.budget >= budgetRange[0] && project.budget <= budgetRange[1]
+    const matchesProgress = project.progress >= progressRange[0] && project.progress <= progressRange[1]
+    const matchesTeamSize = project.teamSize >= teamSizeRange[0] && project.teamSize <= teamSizeRange[1]
+    
+    // Date filters
+    const projectStartDate = new Date(project.startDate)
+    const projectEndDate = new Date(project.endDate)
+    const matchesStartDateFrom = !startDateFrom || projectStartDate >= new Date(startDateFrom)
+    const matchesStartDateTo = !startDateTo || projectStartDate <= new Date(startDateTo)
+    const matchesEndDateFrom = !endDateFrom || projectEndDate >= new Date(endDateFrom)
+    const matchesEndDateTo = !endDateTo || projectEndDate <= new Date(endDateTo)
+    
+    return matchesSearch && 
+           matchesStatus && 
+           matchesPriority && 
+           matchesCompany && 
+           matchesClient && 
+           matchesRisk && 
+           matchesBudget && 
+           matchesProgress && 
+           matchesTeamSize && 
+           matchesStartDateFrom && 
+           matchesStartDateTo && 
+           matchesEndDateFrom && 
+           matchesEndDateTo
   })
 
   const totalBudget = projects.reduce((sum, project) => sum + project.budget, 0)
@@ -204,10 +286,196 @@ export default function ProjectsPage() {
               <p className="text-slate-600 mt-1">Track and manage all projects across your network</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Advanced Filters
-              </Button>
+              <Dialog open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2 relative">
+                    <Filter className="h-4 w-4" />
+                    Advanced Filters
+                    {hasActiveAdvancedFilters() && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center bg-blue-600 text-white text-xs">
+                        !
+                      </Badge>
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Filter className="h-5 w-5" />
+                      Advanced Filters
+                    </DialogTitle>
+                    <DialogDescription>
+                      Filter projects by company, budget, dates, and more criteria
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-6 py-4">
+                    {/* Company and Client */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Company</Label>
+                        <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companies.map((company) => (
+                              <SelectItem key={company} value={company}>
+                                {company}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Client</Label>
+                        <Select value={selectedClient} onValueChange={setSelectedClient}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select client" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client} value={client}>
+                                {client}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Risk Level */}
+                    <div className="space-y-2">
+                      <Label>Risk Level</Label>
+                      <Select value={selectedRisk} onValueChange={setSelectedRisk}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select risk level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {risks.map((risk) => (
+                            <SelectItem key={risk} value={risk}>
+                              {risk}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Separator />
+
+                    {/* Budget Range */}
+                    <div className="space-y-3">
+                      <Label>Budget Range</Label>
+                      <div className="px-2">
+                        <Slider
+                          value={budgetRange}
+                          onValueChange={setBudgetRange}
+                          max={200000}
+                          step={5000}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-sm text-slate-600 mt-1">
+                          <span>${budgetRange[0].toLocaleString()}</span>
+                          <span>${budgetRange[1].toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress Range */}
+                    <div className="space-y-3">
+                      <Label>Progress Range (%)</Label>
+                      <div className="px-2">
+                        <Slider
+                          value={progressRange}
+                          onValueChange={setProgressRange}
+                          max={100}
+                          step={5}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-sm text-slate-600 mt-1">
+                          <span>{progressRange[0]}%</span>
+                          <span>{progressRange[1]}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Team Size Range */}
+                    <div className="space-y-3">
+                      <Label>Team Size Range</Label>
+                      <div className="px-2">
+                        <Slider
+                          value={teamSizeRange}
+                          onValueChange={setTeamSizeRange}
+                          min={1}
+                          max={20}
+                          step={1}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-sm text-slate-600 mt-1">
+                          <span>{teamSizeRange[0]} members</span>
+                          <span>{teamSizeRange[1]} members</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Date Filters */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-medium">Date Filters</Label>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm">Start Date From</Label>
+                          <Input
+                            type="date"
+                            value={startDateFrom}
+                            onChange={(e) => setStartDateFrom(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Start Date To</Label>
+                          <Input
+                            type="date"
+                            value={startDateTo}
+                            onChange={(e) => setStartDateTo(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm">End Date From</Label>
+                          <Input
+                            type="date"
+                            value={endDateFrom}
+                            onChange={(e) => setEndDateFrom(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">End Date To</Label>
+                          <Input
+                            type="date"
+                            value={endDateTo}
+                            onChange={(e) => setEndDateTo(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex gap-2">
+                    <Button variant="outline" onClick={clearAdvancedFilters}>
+                      <X className="h-4 w-4 mr-2" />
+                      Clear All
+                    </Button>
+                    <Button onClick={() => setShowAdvancedFilters(false)}>
+                      Apply Filters
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
               <Link href="/projects/create">
                 <Button className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600">
                   <Plus className="h-4 w-4" />
@@ -310,12 +578,142 @@ export default function ProjectsPage() {
                   </div>
                 </div>
               </div>
+              
+              {/* Active Advanced Filters */}
+              {hasActiveAdvancedFilters() && (
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm text-slate-600 font-medium">Active filters:</span>
+                    {selectedCompany !== "All" && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Building2 className="h-3 w-3" />
+                        {selectedCompany}
+                        <button onClick={() => setSelectedCompany("All")} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {selectedClient !== "All" && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Users className="h-3 w-3" />
+                        {selectedClient}
+                        <button onClick={() => setSelectedClient("All")} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {selectedRisk !== "All" && (
+                      <Badge variant="secondary" className="gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Risk: {selectedRisk}
+                        <button onClick={() => setSelectedRisk("All")} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {(budgetRange[0] !== 0 || budgetRange[1] !== 200000) && (
+                      <Badge variant="secondary" className="gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        ${budgetRange[0].toLocaleString()} - ${budgetRange[1].toLocaleString()}
+                        <button onClick={() => setBudgetRange([0, 200000])} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {(progressRange[0] !== 0 || progressRange[1] !== 100) && (
+                      <Badge variant="secondary" className="gap-1">
+                        Progress: {progressRange[0]}% - {progressRange[1]}%
+                        <button onClick={() => setProgressRange([0, 100])} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {(teamSizeRange[0] !== 1 || teamSizeRange[1] !== 10) && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Users className="h-3 w-3" />
+                        Team: {teamSizeRange[0]} - {teamSizeRange[1]}
+                        <button onClick={() => setTeamSizeRange([1, 10])} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {(startDateFrom || startDateTo) && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Start: {startDateFrom || '...'} to {startDateTo || '...'}
+                        <button onClick={() => { setStartDateFrom(""); setStartDateTo(""); }} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {(endDateFrom || endDateTo) && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Calendar className="h-3 w-3" />
+                        End: {endDateFrom || '...'} to {endDateTo || '...'}
+                        <button onClick={() => { setEndDateFrom(""); setEndDateTo(""); }} className="ml-1 hover:bg-slate-300 rounded-full">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={clearAdvancedFilters}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Projects Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredProjects.map((project) => (
+          <div className="space-y-4">
+            {/* Results count */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Showing <span className="font-medium">{filteredProjects.length}</span> of <span className="font-medium">{projects.length}</span> projects
+              </div>
+              {filteredProjects.length === 0 && (
+                <Button variant="outline" size="sm" onClick={clearAdvancedFilters}>
+                  <X className="h-4 w-4 mr-2" />
+                  Reset Filters
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredProjects.length === 0 ? (
+              <div className="col-span-full">
+                <Card className="border-slate-200">
+                  <CardContent className="p-12 text-center">
+                    <FolderKanban className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">No projects found</h3>
+                    <p className="text-slate-600 mb-4">
+                      {hasActiveAdvancedFilters() || selectedStatus !== "All" || selectedPriority !== "All" || searchTerm
+                        ? "No projects match your current filters. Try adjusting your search criteria."
+                        : "There are no projects to display."}
+                    </p>
+                    {(hasActiveAdvancedFilters() || selectedStatus !== "All" || selectedPriority !== "All" || searchTerm) && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setSearchTerm("")
+                          setSelectedStatus("All")
+                          setSelectedPriority("All")
+                          clearAdvancedFilters()
+                        }}
+                      >
+                        Clear all filters
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              filteredProjects.map((project) => (
               <Card key={project.id} className="border-slate-200 hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -454,7 +852,9 @@ export default function ProjectsPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            ))
+            )}
+          </div>
           </div>
         </div>
       </div>
