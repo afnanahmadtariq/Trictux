@@ -59,7 +59,7 @@ const stats = [
     icon: TrendingUp,
     color: "text-orange-600",
     bgColor: "bg-orange-50",
-    href: "/companies/performance",
+    href: "/companies",
   },
 ]
 
@@ -108,7 +108,7 @@ const recentActivity = [
 
 const quickActions = [
   { title: "Create New Project", href: "/projects/create", icon: FolderKanban },
-  { title: "Add Client", href: "/clients/add", icon: Users },
+  { title: "Manage Clients", href: "/clients", icon: Users },
   { title: "View All Companies", href: "/companies", icon: Building2 },
   { title: "Assignment Engine", href: "/assignment", icon: Zap },
 ]
