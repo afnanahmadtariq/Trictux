@@ -23,9 +23,13 @@ import {
   MoreHorizontal,
   Edit,
   UserX,
-  UserPlus
+  UserPlus,
+  Plus,
+  Phone,
+  Star
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 
 interface UserProfile {
@@ -63,13 +67,43 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false)
+  const [clientDialogOpen, setClientDialogOpen] = useState(false)
+  const [companyDialogOpen, setCompanyDialogOpen] = useState(false)
+  const [isSubmittingClient, setIsSubmittingClient] = useState(false)
+  const [isSubmittingCompany, setIsSubmittingCompany] = useState(false)
+  
   const [newStatus, setNewStatus] = useState<"active" | "inactive">("active")
+  
   const [editData, setEditData] = useState({
     name: "",
     position: "",
     company: "",
     department: ""
   })
+
+  const [newClient, setNewClient] = useState({
+    name: "",
+    industry: "",
+    priority: "Medium",
+    email: "",
+    password: "",
+    phone: "",
+    location: "",
+    notes: ""
+  })
+  
+  const [newCompany, setNewCompany] = useState({
+    name: "",
+    location: "",
+    teamSize: "",
+    specialties: [] as string[],
+    description: "",
+    email: "",
+    password: "",
+    contactPerson: ""
+  })
+  
+  const [specialty, setSpecialty] = useState("")
 
   const fetchUsers = async () => {
     try {
@@ -158,11 +192,169 @@ export default function UsersPage() {
     })
     setIsEditDialogOpen(true)
   }
-
   const openStatusDialog = (user: User) => {
     setSelectedUser(user)
     setNewStatus(user.status === "active" ? "inactive" : "active")
     setIsStatusDialogOpen(true)
+  }
+
+  // Client creation handlers
+  const handleClientInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setNewClient({
+      ...newClient,
+      [name]: value
+    })
+  }
+
+  const handleClientSelectChange = (name: string, value: string) => {
+    setNewClient({
+      ...newClient,
+      [name]: value
+    })
+  }
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validate form
+    if (!newClient.name || !newClient.industry || !newClient.email || !newClient.password) {
+      toast.error("Please fill all required fields.")
+      return
+    }
+
+    // Validate password
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
+    if (!passwordRegex.test(newClient.password)) {
+      toast.error("Password must be at least 8 characters with uppercase, lowercase, number, and special character.")
+      return
+    }
+
+    try {
+      setIsSubmittingClient(true)
+      
+      // Save client to database via API
+      const response = await fetch("/api/clients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newClient),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast.success(`${newClient.name} has been added successfully.`)
+        
+        // Close the dialog and reset form
+        setClientDialogOpen(false)
+        setNewClient({
+          name: "",
+          industry: "",
+          priority: "Medium",
+          email: "",
+          password: "",
+          phone: "",
+          location: "",
+          notes: ""
+        })
+        
+        // Refresh users list to show new client
+        fetchUsers()
+      } else {
+        toast.error(data.error || "Failed to add client. Please try again.")
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred. Please try again.")
+      console.error("Error adding client:", error)
+    } finally {
+      setIsSubmittingClient(false)
+    }
+  }
+
+  // Company creation handlers
+  const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setNewCompany({
+      ...newCompany,
+      [name]: value
+    })
+  }
+
+  const addSpecialty = () => {
+    if (specialty && !newCompany.specialties.includes(specialty)) {
+      setNewCompany({
+        ...newCompany,
+        specialties: [...newCompany.specialties, specialty]
+      })
+      setSpecialty("")
+    }
+  }
+
+  const removeSpecialty = (specialtyToRemove: string) => {
+    setNewCompany({
+      ...newCompany,
+      specialties: newCompany.specialties.filter(s => s !== specialtyToRemove)
+    })
+  }
+
+  const handleAddCompany = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validate form
+    if (!newCompany.name || !newCompany.location || !newCompany.teamSize || !newCompany.email || !newCompany.password || !newCompany.contactPerson) {
+      toast.error("Please fill all required fields.")
+      return
+    }
+    
+    // Validate password
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
+    if (!passwordRegex.test(newCompany.password)) {
+      toast.error("Password must be at least 8 characters, include uppercase, lowercase, number, and special character.")
+      return
+    }
+
+    try {
+      setIsSubmittingCompany(true)
+      
+      // Save company to database via API
+      const response = await fetch("/api/companies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newCompany),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast.success(`${newCompany.name} has been added successfully.`)
+        
+        // Close the dialog and reset form
+        setCompanyDialogOpen(false)
+        setNewCompany({
+          name: "",
+          location: "",
+          teamSize: "",
+          specialties: [],
+          description: "",
+          email: "",
+          password: "",
+          contactPerson: ""
+        })
+        
+        // Refresh users list to show new company
+        fetchUsers()
+      } else {
+        toast.error(data.error || "Failed to add company. Please try again.")
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred. Please try again.")
+      console.error("Error adding company:", error)
+    } finally {
+      setIsSubmittingCompany(false)
+    }
   }
 
   const getUserTypeColor = (userType: string) => {
@@ -218,14 +410,29 @@ export default function UsersPage() {
     )
   }
 
-  return (
-    <div className="p-6 space-y-6">
+  return (    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground">
-            View and manage all users in the system
+            View and manage users in your company ecosystem
           </p>
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            onClick={() => setClientDialogOpen(true)}
+            className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600"
+          >
+            <UserPlus className="h-4 w-4" />
+            Add Client
+          </Button>
+          <Button 
+            onClick={() => setCompanyDialogOpen(true)}
+            className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600"
+          >
+            <Building2 className="h-4 w-4" />
+            Add Company
+          </Button>
         </div>
       </div>
 
@@ -290,11 +497,10 @@ export default function UsersPage() {
       )}
 
       {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
+      <Card>        <CardHeader>
+          <CardTitle>Company Users</CardTitle>
           <CardDescription>
-            Complete list of all users in the system with their details and status
+            Users in your company ecosystem: yourself, partner companies, and their employees
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -308,84 +514,94 @@ export default function UsersPage() {
                 <TableHead>Last Login</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback>
-                          {getInitials(user.profile?.name, user.email)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">
-                          {user.profile?.name || user.email}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {user.email}
-                        </div>
-                        {user.profile?.position && (
-                          <div className="text-xs text-muted-foreground">
-                            {user.profile.position}
-                          </div>
-                        )}
-                      </div>
+            </TableHeader>            <TableBody>
+              {users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-muted-foreground">
+                      <UsersIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No users found in your company ecosystem</p>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getUserTypeColor(user.userType)}>
-                      {user.userType}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(user.status)}>
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {formatDate(user.createdAt)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      {formatDate(user.lastLogin)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openStatusDialog(user)}>
-                          {user.status === "active" ? (
-                            <>
-                              <UserX className="mr-2 h-4 w-4" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="mr-2 h-4 w-4" />
-                              Activate
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback>
+                            {getInitials(user.profile?.name, user.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">
+                            {user.profile?.name || user.email}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {user.email}
+                          </div>
+                          {user.profile?.position && (
+                            <div className="text-xs text-muted-foreground">
+                              {user.profile.position}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getUserTypeColor(user.userType)}>
+                        {user.userType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(user.status)}>
+                        {user.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {formatDate(user.createdAt)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        {formatDate(user.lastLogin)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openStatusDialog(user)}>
+                            {user.status === "active" ? (
+                              <>
+                                <UserX className="mr-2 h-4 w-4" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Activate
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -452,9 +668,7 @@ export default function UsersPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-
-      {/* Status Update Dialog */}
+      </Dialog>      {/* Status Update Dialog */}
       <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -471,6 +685,289 @@ export default function UsersPage() {
               {newStatus === "active" ? "Activate" : "Deactivate"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Client Dialog */}
+      <Dialog open={clientDialogOpen} onOpenChange={setClientDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <form onSubmit={handleAddClient}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-green-600" />
+                Add New Client
+              </DialogTitle>
+              <DialogDescription>
+                Add a new client to your management system. Fill in the details below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="client-name">Client Name <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="client-name" 
+                    name="name" 
+                    value={newClient.name}
+                    onChange={handleClientInputChange}
+                    placeholder="Enter client name"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="client-industry">Industry <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="client-industry" 
+                    name="industry" 
+                    value={newClient.industry}
+                    onChange={handleClientInputChange}
+                    placeholder="Enter industry"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client-priority">Priority</Label>
+                <Select 
+                  value={newClient.priority} 
+                  onValueChange={(value) => handleClientSelectChange("priority", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="client-email">Email <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="client-email" 
+                    name="email"
+                    type="email" 
+                    value={newClient.email}
+                    onChange={handleClientInputChange}
+                    placeholder="Enter email address"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="client-password">Password <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="client-password" 
+                    name="password"
+                    type="password" 
+                    value={newClient.password}
+                    onChange={handleClientInputChange}
+                    placeholder="Set login password"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client-phone">Phone</Label>
+                <Input 
+                  id="client-phone" 
+                  name="phone" 
+                  value={newClient.phone}
+                  onChange={handleClientInputChange}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client-location">Location</Label>
+                <Input 
+                  id="client-location" 
+                  name="location"
+                  value={newClient.location}
+                  onChange={handleClientInputChange}
+                  placeholder="City, Country"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client-notes">Notes</Label>
+                <Textarea 
+                  id="client-notes" 
+                  name="notes"
+                  value={newClient.notes}
+                  onChange={handleClientInputChange}
+                  placeholder="Additional information about the client"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setClientDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="bg-gradient-to-r from-green-500 to-emerald-600"
+                disabled={isSubmittingClient}
+              >
+                {isSubmittingClient ? "Adding..." : "Add Client"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Company Dialog */}
+      <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <form onSubmit={handleAddCompany}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-blue-600" />
+                Add Partner Company
+              </DialogTitle>
+              <DialogDescription>
+                Add a new company to your partner network. Fill in the details below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company-name">Company Name <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="company-name" 
+                    name="name" 
+                    value={newCompany.name}
+                    onChange={handleCompanyInputChange}
+                    placeholder="Enter company name"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company-location">Location <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="company-location" 
+                    name="location" 
+                    value={newCompany.location}
+                    onChange={handleCompanyInputChange}
+                    placeholder="City, Country"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company-email">Email <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="company-email" 
+                    name="email" 
+                    type="email"
+                    value={newCompany.email}
+                    onChange={handleCompanyInputChange}
+                    placeholder="Company login email"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company-password">Password <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="company-password" 
+                    name="password" 
+                    type="password"
+                    value={newCompany.password}
+                    onChange={handleCompanyInputChange}
+                    placeholder="Set login password"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company-teamSize">Team Size <span className="text-red-500">*</span></Label>
+                <Input 
+                  id="company-teamSize" 
+                  name="teamSize"
+                  type="number"
+                  value={newCompany.teamSize}
+                  onChange={handleCompanyInputChange}
+                  placeholder="Number of team members"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="company-contactPerson">Contact Person <span className="text-red-500">*</span></Label>
+                <Input 
+                  id="company-contactPerson" 
+                  name="contactPerson"
+                  value={newCompany.contactPerson}
+                  onChange={handleCompanyInputChange}
+                  placeholder="Primary contact name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Specialties</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Add a specialty"
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={addSpecialty}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {newCompany.specialties.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {newCompany.specialties.map((skill, index) => (
+                      <Badge 
+                        key={index} 
+                        variant="secondary"
+                        className="px-2 py-1 flex items-center gap-1"
+                      >
+                        {skill}
+                        <button 
+                          type="button"
+                          className="ml-1 hover:text-red-500 focus:outline-none"
+                          onClick={() => removeSpecialty(skill)}
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company-description">Description</Label>
+                <Textarea 
+                  id="company-description" 
+                  name="description"
+                  value={newCompany.description}
+                  onChange={handleCompanyInputChange}
+                  placeholder="Brief description of the company"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCompanyDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="bg-gradient-to-r from-blue-500 to-purple-600"
+                disabled={isSubmittingCompany}
+              >
+                {isSubmittingCompany ? "Adding..." : "Add Company"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

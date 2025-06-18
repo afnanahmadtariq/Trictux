@@ -157,8 +157,8 @@ export default function ClientsPage() {
     name: "",
     industry: "",
     priority: "Medium",
-    contactPerson: "",
     email: "",
+    password: "",
     phone: "",
     location: "",
     notes: ""
@@ -183,10 +183,21 @@ export default function ClientsPage() {
     e.preventDefault()
     
     // Validate form
-    if (!newClient.name || !newClient.industry || !newClient.contactPerson || !newClient.email) {
+    if (!newClient.name || !newClient.industry || !newClient.email || !newClient.password) {
       toast({
         title: "Missing information",
         description: "Please fill all required fields.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate password
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
+    if (!passwordRegex.test(newClient.password)) {
+      toast({
+        title: "Weak password",
+        description: "Password must be at least 8 characters, include uppercase, lowercase, number, and special character.",
         variant: "destructive"
       })
       return
@@ -221,8 +232,8 @@ export default function ClientsPage() {
           name: "",
           industry: "",
           priority: "Medium",
-          contactPerson: "",
           email: "",
+          password: "",
           phone: "",
           location: "",
           notes: ""
@@ -328,17 +339,6 @@ export default function ClientsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPerson">Contact Person <span className="text-red-500">*</span></Label>
-                      <Input 
-                        id="contactPerson" 
-                        name="contactPerson"
-                        value={newClient.contactPerson}
-                        onChange={handleInputChange}
-                        placeholder="Enter contact person name"
-                        required
-                      />
-                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
@@ -353,15 +353,27 @@ export default function ClientsPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Phone</Label>
+                        <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
                         <Input 
-                          id="phone" 
-                          name="phone" 
-                          value={newClient.phone}
+                          id="password" 
+                          name="password"
+                          type="password"
+                          value={newClient.password}
                           onChange={handleInputChange}
-                          placeholder="Enter phone number"
+                          placeholder="Set login password"
+                          required
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input 
+                        id="phone" 
+                        name="phone" 
+                        value={newClient.phone}
+                        onChange={handleInputChange}
+                        placeholder="Enter phone number"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="location">Location</Label>
