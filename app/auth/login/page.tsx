@@ -82,19 +82,6 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <Label htmlFor="userType">User Type</Label>
-              <Select value={formData.userType} onValueChange={(value) => setFormData({ ...formData, userType: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owner">Owner</SelectItem>
-                  <SelectItem value="company">Company</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
@@ -115,6 +102,19 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
+            </div>
+            <div>
+              <Label htmlFor="userType">User Type</Label>
+              <Select value={formData.userType} onValueChange={(value) => setFormData({ ...formData, userType: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="company">Company</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
