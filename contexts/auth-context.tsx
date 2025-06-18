@@ -14,7 +14,7 @@ type User = {
 type AuthContextType = {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string, userType?: string) => Promise<boolean>
   logout: () => void
   checkAuth: () => Promise<boolean>
   setUser: (user: User | null) => void // Add setUser to context
@@ -63,9 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false
     }
   }
-
   // Login function
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, userType?: string): Promise<boolean> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -76,6 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json()
       
       if (res.ok && data.user) {
+        // Validate userType if provided
+        if (userType && data.user.userType !== userType) {
+          toast({
+            title: "Login failed",
+            description: `You are not registered as a ${userType}. Please select the correct user type.`,
+            variant: "destructive",
+          })
+          return false
+        }
+        
         setUser(data.user)
         
         // Navigate based on user type

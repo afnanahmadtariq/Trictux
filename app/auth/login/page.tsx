@@ -10,6 +10,7 @@ import { Zap, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 
 export default function LoginPage() {
@@ -22,44 +23,31 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
-      })
-      const data = await res.json()
-      if (res.ok && data.user) {
-        toast({
-          title: "Login successful!",
-          description: "Welcome back! Redirecting...",
-        })
-        const redirectMap = {
-          owner: "/",
-          company: "/company-dashboard",
-          employee: "/employee-dashboard",
-        }
-        setTimeout(() => {
-          router.push(redirectMap[data.user.userType as keyof typeof redirectMap] || "/")
-        }, 1200)
-      } else {
-        toast({
-          title: "Login failed",
-          description: data.error || "Invalid credentials",
-          variant: "destructive",
-        })
-      }
-    } catch (err) {
+    
+    if (!formData.userType) {
       toast({
-        title: "Login failed",
-        description: "An unexpected error occurred.",
+        title: "User type required",
+        description: "Please select your user type",
         variant: "destructive",
       })
+      return
     }
+    
+    setIsLoading(true)
+    
+    const success = await login(formData.email, formData.password, formData.userType)
+    
+    if (success) {
+      toast({
+        title: "Login successful!",
+        description: "Welcome back! Redirecting...",
+      })
+    }
+    
     setIsLoading(false)
   }
 
@@ -94,6 +82,19 @@ export default function LoginPage() {
               />
             </div>
             <div>
+              <Label htmlFor="userType">User Type</Label>
+              <Select value={formData.userType} onValueChange={(value) => setFormData({ ...formData, userType: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="company">Company</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
@@ -114,22 +115,6 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-            </div>
-            <div>
-              <Label htmlFor="userType">User Type</Label>
-              <Select
-                value={formData.userType}
-                onValueChange={(value) => setFormData({ ...formData, userType: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owner">Platform Owner</SelectItem>
-                  <SelectItem value="company">Partner Company</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}

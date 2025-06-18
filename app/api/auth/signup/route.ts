@@ -30,15 +30,15 @@ export async function POST(req: NextRequest) {
   const hashed = await bcrypt.hash(password, 10);
   const user = { email, password: hashed, userType, createdAt: new Date() };
   const result = await db.collection("users").insertOne(user);
-  
-  // Create owner profile
+    // Create owner profile
   try {
     const now = new Date();
     const ownerProfile: OwnerProfile = {
       email,
       name: name || email.split('@')[0], // Use part of email as name if not provided
       userType: "owner",
-      createdAt: now
+      createdAt: now,
+      status: "active"
     };
     
     await createOwnerProfile(ownerProfile);
