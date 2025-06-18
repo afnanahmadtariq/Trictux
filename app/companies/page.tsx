@@ -896,10 +896,12 @@ export default function CompaniesPage() {
 
 											{/* Actions */}
 											<div className="flex gap-2 pt-3 border-t border-slate-200">
-												<Button variant="outline" size="sm" className="flex-1 gap-2">
-													<Activity className="h-4 w-4" />
-													Details
-												</Button>
+												<Link href={`/companies/${company.id}`} className="flex-1">
+													<Button variant="outline" size="sm" className="w-full gap-2">
+														<Activity className="h-4 w-4" />
+														Details
+													</Button>
+												</Link>
 												<Link
 													href={`/projects?company=${company.id}`}
 													className="flex-1"
