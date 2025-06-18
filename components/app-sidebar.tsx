@@ -36,7 +36,19 @@ import {
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-const navigationItems = [
+type NavigationItem = {
+  title: string
+  url: string
+  icon: React.ComponentType<any>
+  subItems?: { title: string; url: string }[]
+}
+
+type NavigationSection = {
+  title: string
+  items: NavigationItem[]
+}
+
+const navigationItems: NavigationSection[] = [
   {
     title: "Dashboard",
     items: [
@@ -52,15 +64,7 @@ const navigationItems = [
   {
     title: "Project Management",
     items: [
-      {
-        title: "Projects",
-        url: "/projects",
-        icon: FolderKanban,
-        subItems: [
-          { title: "All Projects", url: "/projects" },
-          { title: "Create Project", url: "/projects/create" },
-        ],
-      },
+      { title: "Projects", url: "/projects", icon: FolderKanban },
       { title: "Assignment Engine", url: "/assignment", icon: Zap },
       { title: "Status Tracking", url: "/status", icon: Clock },
     ],
