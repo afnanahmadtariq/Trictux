@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -149,6 +150,7 @@ const projects = [
 ]
 
 export default function ProjectsPage() {
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("All")
   const [selectedPriority, setSelectedPriority] = useState("All")
@@ -173,6 +175,28 @@ export default function ProjectsPage() {
   // Extract unique companies and clients from projects
   const companies = ["All", ...Array.from(new Set(projects.map(p => p.company.name)))]
   const clients = ["All", ...Array.from(new Set(projects.map(p => p.client.name)))]
+
+  // Handle URL parameters for pre-filtering
+  useEffect(() => {
+    const companyParam = searchParams.get('company')
+    const clientParam = searchParams.get('client')
+    
+    if (companyParam) {
+      // Find the company name by ID
+      const company = projects.find(p => p.company.id === companyParam)
+      if (company) {
+        setSelectedCompany(company.company.name)
+      }
+    }
+    
+    if (clientParam) {
+      // Find the client name by ID
+      const client = projects.find(p => p.client.id === clientParam)
+      if (client) {
+        setSelectedClient(client.client.name)
+      }
+    }
+  }, [searchParams])
 
   const clearAdvancedFilters = () => {
     setSelectedCompany("All")
@@ -283,7 +307,9 @@ export default function ProjectsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Project Management</h1>
-              <p className="text-slate-600 mt-1">Track and manage all projects across your network</p>
+              <p className="text-slate-600 mt-1">
+                Track and manage all projects across your network
+              </p>
             </div>
             <div className="flex gap-3">
               <Dialog open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
