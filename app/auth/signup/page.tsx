@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Zap, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -25,32 +25,19 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
+        body: JSON.stringify(formData),
       })
       const data = await res.json()
       if (res.ok) {
-        // Store user info and redirect
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            email: data.user.email,
-            role: data.user.userType,
-          }),
-        )
-        const redirectMap = {
-          owner: "/",
-          company: "/company-dashboard",
-          employee: "/employee-dashboard",
-        }
-        router.push(redirectMap[data.user.userType as keyof typeof redirectMap] || "/")
+        router.push("/auth/login")
       } else {
-        alert(data.error || "Login failed")
+        alert(data.error || "Signup failed")
       }
     } catch (err) {
-      alert("Login failed")
+      alert("Signup failed")
     }
     setIsLoading(false)
   }
@@ -68,8 +55,8 @@ export default function LoginPage() {
               <p className="text-sm text-slate-500">Smart Project Management</p>
             </div>
           </div>
-          <CardTitle className="text-xl">Welcome Back</CardTitle>
-          <p className="text-slate-600">Sign in to your account</p>
+          <CardTitle className="text-xl">Create Account</CardTitle>
+          <p className="text-slate-600">Sign up for a new account</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -123,7 +110,7 @@ export default function LoginPage() {
               </Select>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Signing up..." : "Sign Up"}
             </Button>
           </form>
         </CardContent>
