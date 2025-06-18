@@ -21,4 +21,10 @@ export default function Loading() {
             ))}
           </div>
           <div className="bg-white p-6 rounded-lg border border-slate-200 animate-pulse">
-            <div className\
+            <div className="h-64 bg-slate-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
