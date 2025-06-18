@@ -399,10 +399,12 @@ export default function ProjectDetailPage() {
                 <MessageSquare className="h-4 w-4" />
                 Contact Team
               </Button>
-              <Button className="gap-2">
-                <Edit className="h-4 w-4" />
-                Edit Project
-              </Button>
+              <Link href={`/projects/${project.id}/edit`}>
+                <Button className="gap-2">
+                  <Edit className="h-4 w-4" />
+                  Edit Project
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -570,7 +572,7 @@ export default function ProjectDetailPage() {
                                     <div>
                                       <Label>Analysis Report</Label>
                                       <Textarea
-                                        value={milestone.payment.aiVerification.analysis}
+                                        value={milestone.payment.aiVerification.analysis || ""}
                                         readOnly
                                         className="mt-1"
                                         rows={4}

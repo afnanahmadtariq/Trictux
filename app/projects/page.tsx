@@ -371,9 +371,11 @@ export default function ProjectsPage() {
                               View Details
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
-                            <Edit className="h-4 w-4" />
-                            Edit Project
+                          <DropdownMenuItem asChild>
+                            <Link href={`/projects/${project.id}/edit`} className="gap-2">
+                              <Edit className="h-4 w-4" />
+                              Edit Project
+                            </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-2 text-red-600">
                             <Trash2 className="h-4 w-4" />
