@@ -1,5 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -110,7 +113,39 @@ const quickActions = [
   { title: "Assignment Engine", href: "/assignment", icon: Zap },
 ]
 
-export default function Dashboard() {
+export default function MainDashboard() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user) {
+      if (user.userType === "owner") {
+        // Owners stay on the main dashboard (this page)
+        return
+      } else if (user.userType === "company") {
+        router.replace("/company-dashboard")
+        return
+      } else if (user.userType === "employee") {
+        router.replace("/employee-dashboard")
+        return
+      }
+    }
+  }, [user, loading, router])
+
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  // If no user or not an owner, don't show this dashboard
+  if (!user || user.userType !== "owner") {
+    return null
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}

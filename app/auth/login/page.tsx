@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,15 +33,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email: formData.email, password: formData.password }),
       })
       const data = await res.json()
-      if (res.ok) {
-        // Store user info and redirect
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            email: data.user.email,
-            role: data.user.userType,
-          }),
-        )
+      if (res.ok && data.user) {
         toast({
           title: "Login successful!",
           description: "Welcome back! Redirecting...",

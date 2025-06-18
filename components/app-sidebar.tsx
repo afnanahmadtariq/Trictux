@@ -6,7 +6,6 @@ import {
   Building2,
   Users,
   FolderKanban,
-  Settings,
   Zap,
   Clock,
   Search,
@@ -74,7 +73,6 @@ const navigationItems = [
   {
     title: "System",
     items: [
-      { title: "Settings", url: "/settings", icon: Settings },
       { title: "Users", url: "/users", icon: UserCheck },
     ],
   },
