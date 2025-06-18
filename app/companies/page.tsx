@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Activity, ArrowUpRight, BarChart3, Building2, Calendar, CheckCircle, DownloadCloud, Users, Star, TrendingUp } from "lucide-react"
+import { Activity, ArrowUpRight, BarChart3, Building2, Calendar, CheckCircle, DownloadCloud, Users, Star, TrendingUp, ChevronDown, FileText, Database } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { 
   Dialog, 
@@ -18,6 +18,12 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -133,7 +139,7 @@ export default function CompaniesPage() {
         toast({
           title: "Error",
           description: "Failed to fetch companies. Using demo data.",
-          variant: "destructive"
+            variant: "destructive"
         })
       } finally {
         setIsLoading(false)
@@ -266,6 +272,155 @@ export default function CompaniesPage() {
     }
   }
 
+	// Function to generate performance report data
+	const generatePerformanceReportData = () => {
+		const reportData = companies.map(company => ({
+			'Company Name': company.name,
+			'Location': company.location,
+			'Team Size': company.teamSize,
+			'Success Rate (%)': company.successRate,
+			'Average Delivery Time': company.avgDeliveryTime,
+			'Active Projects': company.activeProjects,
+			'Completed Projects': company.completedProjects,
+			'Current Workload (%)': company.currentWorkload,
+			'Rating': company.rating,
+			'Revenue ($)': company.revenue,
+			'Status': company.status,
+			'Join Date': company.joinDate,
+			'Last Delivery': company.lastDelivery,
+			'Specialties': company.specialties.join(', ')
+		}))
+
+		// Add summary statistics
+		const totalRevenue = companies.reduce((sum, company) => sum + company.revenue, 0)
+		const avgSuccessRate = companies.reduce((sum, company) => sum + company.successRate, 0) / companies.length
+		const totalActiveProjects = companies.reduce((sum, company) => sum + company.activeProjects, 0)
+		const totalCompletedProjects = companies.reduce((sum, company) => sum + company.completedProjects, 0)
+		const avgRating = companies.reduce((sum, company) => sum + company.rating, 0) / companies.length
+
+		return {
+			companies: reportData,
+			summary: {
+				'Total Companies': companies.length,
+				'Total Revenue ($)': totalRevenue,
+				'Average Success Rate (%)': avgSuccessRate.toFixed(1),
+				'Total Active Projects': totalActiveProjects,
+				'Total Completed Projects': totalCompletedProjects,
+				'Average Rating': avgRating.toFixed(1),
+				'Report Generated': new Date().toLocaleString()
+			}
+		}
+	}
+
+	// Function to convert data to CSV and download
+	const downloadCSVReport = (data: any) => {
+		// Create CSV content for companies
+		const csvHeaders = Object.keys(data.companies[0]).join(',')
+		const csvRows = data.companies.map((row: any) => 
+			Object.values(row).map(value => 
+				typeof value === 'string' && value.includes(',') ? `"${value}"` : value
+			).join(',')
+		).join('\n')
+		
+		// Create CSV content for summary
+		const summaryHeaders = 'Metric,Value'
+		const summaryRows = Object.entries(data.summary).map(([key, value]) => `${key},${value}`).join('\n')
+		
+		const csvContent = `Performance Report - Company Data\n${csvHeaders}\n${csvRows}\n\nSummary Statistics\n${summaryHeaders}\n${summaryRows}`
+		
+		// Create and download file
+		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+		const link = document.createElement('a')
+		const url = URL.createObjectURL(blob)
+		link.setAttribute('href', url)
+		link.setAttribute('download', `performance-report-${new Date().toISOString().split('T')[0]}.csv`)
+		link.style.visibility = 'hidden'
+		document.body.appendChild(link)
+		link.click()
+		document.body.removeChild(link)
+	}
+
+	// Function to download JSON report
+	const downloadJSONReport = (data: any) => {
+		const jsonContent = JSON.stringify(data, null, 2)
+		const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' })
+		const link = document.createElement('a')
+		const url = URL.createObjectURL(blob)
+		link.setAttribute('href', url)
+		link.setAttribute('download', `performance-report-${new Date().toISOString().split('T')[0]}.json`)
+		link.style.visibility = 'hidden'
+		document.body.appendChild(link)
+		link.click()
+		document.body.removeChild(link)
+	}
+
+	// Function to generate detailed performance analysis
+	const generateDetailedAnalysis = (data: any) => {
+		const analysis = {
+			...data,
+			analysis: {
+				topPerformers: data.companies
+					.sort((a: any, b: any) => b['Success Rate (%)'] - a['Success Rate (%)'])
+					.slice(0, 3)
+					.map((company: any) => ({
+						name: company['Company Name'],
+						successRate: company['Success Rate (%)'],
+						revenue: company['Revenue ($)']
+					})),
+				lowPerformers: data.companies
+					.sort((a: any, b: any) => a['Success Rate (%)'] - b['Success Rate (%)'])
+					.slice(0, 2)
+					.map((company: any) => ({
+						name: company['Company Name'],
+						successRate: company['Success Rate (%)'],
+						recommendations: 'Consider additional training and support'
+					})),
+				revenueAnalysis: {
+					highestRevenue: Math.max(...data.companies.map((c: any) => c['Revenue ($)'])),
+					lowestRevenue: Math.min(...data.companies.map((c: any) => c['Revenue ($)'])),
+					medianRevenue: data.companies.sort((a: any, b: any) => a['Revenue ($)'] - b['Revenue ($)'])[Math.floor(data.companies.length / 2)]['Revenue ($)']
+				},
+				workloadAnalysis: {
+					overloaded: data.companies.filter((c: any) => c['Current Workload (%)'] > 80).length,
+					balanced: data.companies.filter((c: any) => c['Current Workload (%)'] >= 50 && c['Current Workload (%)'] <= 80).length,
+					underutilized: data.companies.filter((c: any) => c['Current Workload (%)'] < 50).length
+				}
+			}
+		}
+		return analysis
+	}
+
+	// Enhanced report generation with format options
+	const handleGenerateReport = (format: 'csv' | 'json' | 'detailed') => {
+		toast({
+			title: "Generating report",
+			description: `Please wait while we generate your ${format.toUpperCase()} performance report...`,
+		})
+
+		// Simulate report generation delay
+		setTimeout(() => {
+			const reportData = generatePerformanceReportData()
+			
+			switch(format) {
+				case 'csv':
+					downloadCSVReport(reportData)
+					break
+				case 'json':
+					downloadJSONReport(reportData)
+					break
+				case 'detailed':
+					const detailedData = generateDetailedAnalysis(reportData)
+					downloadJSONReport(detailedData)
+					break
+			}
+			
+			toast({
+				title: "Report ready",
+				description: `${format.toUpperCase()} performance report has been generated and downloaded successfully.`,
+			})
+		}, 2000)
+	}
+
 	const totalRevenue = companies.reduce(
 		(sum, company) => sum + company.revenue,
 		0
@@ -298,21 +453,6 @@ export default function CompaniesPage() {
 		setCompanyDialogOpen(true)
 	}
 
-	const handleGenerateReport = () => {
-		toast({
-			title: "Generating report",
-			description: "Please wait while we generate your performance report...",
-		})
-
-		// Simulate report generation
-		setTimeout(() => {
-			toast({
-				title: "Report ready",
-				description: "Performance report has been generated successfully.",
-			})
-		}, 2000)
-	}
-
 	return (
 		<div className="flex flex-col min-h-screen">
 			{/* Header */}
@@ -328,14 +468,29 @@ export default function CompaniesPage() {
 							</p>
 						</div>
 						<div className="flex gap-3">
-							<Button
-								variant="outline"
-								className="gap-2"
-								onClick={handleGenerateReport}
-							>
-								<BarChart3 className="h-4 w-4" />
-								Performance Report
-							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button variant="outline" className="gap-2">
+										<BarChart3 className="h-4 w-4" />
+										Performance Report
+										<ChevronDown className="h-4 w-4" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end">
+									<DropdownMenuItem onClick={() => handleGenerateReport('csv')}>
+										<FileText className="h-4 w-4 mr-2" />
+										Download CSV Report
+									</DropdownMenuItem>
+									<DropdownMenuItem onClick={() => handleGenerateReport('json')}>
+										<Database className="h-4 w-4 mr-2" />
+										Download JSON Report
+									</DropdownMenuItem>
+									<DropdownMenuItem onClick={() => handleGenerateReport('detailed')}>
+										<BarChart3 className="h-4 w-4 mr-2" />
+										Download Detailed Analysis
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
               <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
                 <DialogTrigger asChild>
                   <Button 

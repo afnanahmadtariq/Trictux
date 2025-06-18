@@ -2,6 +2,7 @@
 
 import type * as React from "react"
 import { usePathname } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import {
   Building2,
   Users,
@@ -80,9 +81,10 @@ const navigationItems = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const { logout } = useAuth()
 
-  const handleLogout = () => {
-    localStorage.removeItem("user")
+  const handleLogout = async () => {
+    await logout()
     window.location.href = "/auth/login"
   }
 
