@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongo";
 import bcrypt from "bcryptjs";
-import { 
-  createOwnerProfile, 
-  createCompanyProfile, 
-  createEmployeeProfile, 
-  OwnerProfile, 
-  CompanyProfile, 
-  EmployeeProfile 
-} from "@/lib/actors";
+import { createOwnerProfile, OwnerProfile } from "@/lib/actors";
 
 export async function POST(req: NextRequest) {
-  const { email, password, userType, name, companyName, contactPerson, fullName, position, department } = await req.json();
+  const { email, password, userType, name } = await req.json();
   
-  if (!email || !password || !userType) {
+  // Only allow owner signup
+  if (userType !== "owner") {
+    return NextResponse.json({ 
+      error: "Only platform owners can sign up directly. Companies and employees are added by owners." 
+    }, { 
+      status: 403 
+    });
+  }
+  
+  if (!email || !password || !name) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
   
@@ -29,40 +31,17 @@ export async function POST(req: NextRequest) {
   const user = { email, password: hashed, userType, createdAt: new Date() };
   const result = await db.collection("users").insertOne(user);
   
-  // Create appropriate profile based on user type
+  // Create owner profile
   try {
     const now = new Date();
+    const ownerProfile: OwnerProfile = {
+      email,
+      name: name || email.split('@')[0], // Use part of email as name if not provided
+      userType: "owner",
+      createdAt: now
+    };
     
-    if (userType === "owner") {
-      const ownerProfile: OwnerProfile = {
-        email,
-        name: name || email.split('@')[0], // Use part of email as name if not provided
-        userType: "owner",
-        createdAt: now
-      };
-      await createOwnerProfile(ownerProfile);
-    } 
-    else if (userType === "company") {
-      const companyProfile: CompanyProfile = {
-        email,
-        companyName: companyName || "New Company", 
-        contactPerson: contactPerson || name || email.split('@')[0],
-        userType: "company",
-        createdAt: now
-      };
-      await createCompanyProfile(companyProfile);
-    } 
-    else if (userType === "employee") {
-      const employeeProfile: EmployeeProfile = {
-        email,
-        fullName: fullName || name || email.split('@')[0],
-        position,
-        department,
-        userType: "employee",
-        createdAt: now
-      };
-      await createEmployeeProfile(employeeProfile);
-    }
+    await createOwnerProfile(ownerProfile);
     
     return NextResponse.json({ success: true });
   } catch (error) {

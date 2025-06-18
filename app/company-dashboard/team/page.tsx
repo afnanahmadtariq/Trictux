@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
 import {
   Users,
   Search,
@@ -21,6 +22,22 @@ import {
   Target,
   CheckCircle,
 } from "lucide-react"
+
+// Team member type definition
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  skills: string[];
+  currentTasks: number;
+  completedTasks: number;
+  availability: string;
+  joinDate: string;
+  performance: number;
+  projects: string[];
+}
 
 const teamMembers = [
   {
@@ -96,28 +113,162 @@ const teamMembers = [
 ]
 
 export default function TeamManagementPage() {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedRole, setSelectedRole] = useState("All")
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [newMember, setNewMember] = useState({
     name: "",
     role: "",
     email: "",
     phone: "",
     skills: "",
+    password: ""
   })
+  
+  // Fetch team members from the database on page load
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/employees')
+        const data = await response.json()
+        
+        if (response.ok && data.employees) {
+          // If we have employees from the API, use them
+          if (data.employees.length > 0) {
+            setTeamMembers(data.employees)
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch team members. Using demo data.",
+            variant: "destructive"
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching team members:', error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch team members. Using demo data.",
+          variant: "destructive"
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const filteredMembers = teamMembers.filter((member) => {
+    fetchTeamMembers()
+  }, [])
+
+  const handleAddMember = async () => {
+    // Validate form
+    if (!newMember.name || !newMember.role || !newMember.email || !newMember.password) {
+      toast({
+        title: "Missing information",
+        description: "Please fill all required fields.",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    // Validate password
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
+    if (!passwordRegex.test(newMember.password)) {
+      toast({
+        title: "Weak password",
+        description: "Password must be at least 8 characters, include uppercase, lowercase, number, and special character.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      // Set loading state
+      setIsSubmitting(true)
+      
+      // Save employee to database via API
+      const response = await fetch("/api/employees", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newMember),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Team member added",
+          description: `${newMember.name} has been added successfully.`
+        })
+        
+        // Add the new team member to the list without needing a full page refresh
+        const newTeamMemberWithDefaults: TeamMember = {
+          id: data.employee.id || `EMP-${Math.floor(Math.random() * 10000)}`,
+          name: newMember.name,
+          role: newMember.role,
+          email: newMember.email,
+          phone: newMember.phone || "",
+          skills: newMember.skills ? newMember.skills.split(',').map(s => s.trim()) : [],
+          currentTasks: 0,
+          completedTasks: 0,
+          availability: "Available",
+          joinDate: new Date().toISOString().split('T')[0],
+          performance: 100,
+          projects: []
+        }
+        
+        setTeamMembers([...teamMembers, newTeamMemberWithDefaults])
+        
+        // Close the dialog and reset form
+        setAddMemberOpen(false)
+        setNewMember({
+          name: "",
+          role: "",
+          email: "",
+          phone: "",
+          skills: "",
+          password: ""
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to add team member. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      })
+      console.error("Error adding team member:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Get all available roles for the filter
+  const roles = ["All", ...Array.from(new Set(teamMembers.map((member: TeamMember) => member.role)))]
+  
+  // Calculate statistics
+  const totalTasks = teamMembers.reduce((sum: number, member: TeamMember) => sum + member.currentTasks, 0)
+  const availableMembers = teamMembers.filter((member: TeamMember) => member.availability === "Available").length
+  
+  // Filter members based on search and role
+  const filteredMembers = teamMembers.filter((member: TeamMember) => {
     const matchesSearch =
       member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.role.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRole = selectedRole === "All" || member.role === selectedRole
     return matchesSearch && matchesRole
   })
-
-  const roles = ["All", ...Array.from(new Set(teamMembers.map((member) => member.role)))]
-  const totalTasks = teamMembers.reduce((sum, member) => sum + member.currentTasks, 0)
-  const availableMembers = teamMembers.filter((member) => member.availability === "Available").length
 
   const getAvailabilityColor = (availability: string) => {
     switch (availability) {
@@ -191,15 +342,32 @@ export default function TeamManagementPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
                       <Input
                         id="email"
                         type="email"
                         value={newMember.email}
                         onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
                         placeholder="Enter email"
+                        required
                       />
                     </div>
+                    <div>
+                      <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={newMember.password}
+                        onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
+                        placeholder="Set login password"
+                        required
+                      />
+                      <p className="text-xs text-slate-500">
+                        Must be at least 8 characters with uppercase, lowercase, number, and special character
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="phone">Phone</Label>
                       <Input
@@ -219,7 +387,14 @@ export default function TeamManagementPage() {
                       placeholder="React, Node.js, TypeScript..."
                     />
                   </div>
-                  <Button className="w-full">Add Team Member</Button>
+                  <Button 
+                    className="w-full" 
+                    type="button"
+                    onClick={handleAddMember}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Adding..." : "Add Team Member"}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -305,7 +480,7 @@ export default function TeamManagementPage() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  {roles.map((role) => (
+                  {roles.map((role: string) => (
                     <Button
                       key={role}
                       variant={selectedRole === role ? "default" : "outline"}
@@ -322,7 +497,7 @@ export default function TeamManagementPage() {
 
           {/* Team Members Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMembers.map((member) => (
+            {filteredMembers.map((member: TeamMember) => (
               <Card key={member.id} className="border-slate-200 hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -330,7 +505,7 @@ export default function TeamManagementPage() {
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
                         {member.name
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .join("")}
                       </div>
                       <div>
@@ -384,7 +559,7 @@ export default function TeamManagementPage() {
                   <div className="pt-3 border-t border-slate-200">
                     <p className="text-sm text-slate-600 mb-2">Skills</p>
                     <div className="flex flex-wrap gap-1">
-                      {member.skills.slice(0, 3).map((skill) => (
+                      {member.skills.slice(0, 3).map((skill: string) => (
                         <Badge key={skill} variant="outline" className="text-xs">
                           {skill}
                         </Badge>
@@ -401,7 +576,7 @@ export default function TeamManagementPage() {
                   <div className="pt-3 border-t border-slate-200">
                     <p className="text-sm text-slate-600 mb-2">Current Projects</p>
                     <div className="space-y-1">
-                      {member.projects.map((project) => (
+                      {member.projects.map((project: string) => (
                         <p key={project} className="text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded">
                           {project}
                         </p>

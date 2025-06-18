@@ -101,7 +101,10 @@ export default function CompaniesPage() {
     location: "",
     teamSize: "",
     specialties: [] as string[],
-    description: ""
+    description: "",
+    email: "",
+    password: "",
+    contactPerson: ""
   })
   const [specialty, setSpecialty] = useState("")
 
@@ -169,10 +172,21 @@ export default function CompaniesPage() {
     e.preventDefault()
     
     // Validate form
-    if (!newCompany.name || !newCompany.location || !newCompany.teamSize) {
+    if (!newCompany.name || !newCompany.location || !newCompany.teamSize || !newCompany.email || !newCompany.password || !newCompany.contactPerson) {
       toast({
         title: "Missing information",
         description: "Please fill all required fields.",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    // Validate password
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
+    if (!passwordRegex.test(newCompany.password)) {
+      toast({
+        title: "Weak password",
+        description: "Password must be at least 8 characters, include uppercase, lowercase, number, and special character.",
         variant: "destructive"
       })
       return
@@ -228,7 +242,10 @@ export default function CompaniesPage() {
           location: "",
           teamSize: "",
           specialties: [],
-          description: ""
+          description: "",
+          email: "",
+          password: "",
+          contactPerson: ""
         })
       } else {
         toast({
@@ -365,6 +382,36 @@ export default function CompaniesPage() {
                           />
                         </div>
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                          <Input 
+                            id="email" 
+                            name="email" 
+                            type="email"
+                            value={newCompany.email}
+                            onChange={handleInputChange}
+                            placeholder="Company login email"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
+                          <Input 
+                            id="password" 
+                            name="password" 
+                            type="password"
+                            value={newCompany.password}
+                            onChange={handleInputChange}
+                            placeholder="Set login password"
+                            required
+                          />
+                          <p className="text-xs text-slate-500">
+                            Must be at least 8 characters with uppercase, lowercase, number, and special character
+                          </p>
+                        </div>
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="teamSize">Team Size <span className="text-red-500">*</span></Label>
                         <Input 
@@ -374,6 +421,18 @@ export default function CompaniesPage() {
                           value={newCompany.teamSize}
                           onChange={handleInputChange}
                           placeholder="Number of team members"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="contactPerson">Contact Person <span className="text-red-500">*</span></Label>
+                        <Input 
+                          id="contactPerson" 
+                          name="contactPerson"
+                          value={newCompany.contactPerson}
+                          onChange={handleInputChange}
+                          placeholder="Primary contact name"
                           required
                         />
                       </div>
@@ -424,6 +483,42 @@ export default function CompaniesPage() {
                           onChange={handleInputChange}
                           placeholder="Brief description of the company"
                           rows={3}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                          <Input 
+                            id="email" 
+                            name="email" 
+                            type="email"
+                            value={newCompany.email}
+                            onChange={handleInputChange}
+                            placeholder="Enter company email"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
+                          <Input 
+                            id="password" 
+                            name="password" 
+                            type="password"
+                            value={newCompany.password}
+                            onChange={handleInputChange}
+                            placeholder="Enter password"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contactPerson">Contact Person</Label>
+                        <Input 
+                          id="contactPerson" 
+                          name="contactPerson"
+                          value={newCompany.contactPerson}
+                          onChange={handleInputChange}
+                          placeholder="Name of the contact person"
                         />
                       </div>
                     </div>

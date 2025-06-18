@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongo";
+import bcrypt from "bcryptjs";
+import { createCompanyProfile, CompanyProfile } from "@/lib/actors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,12 +28,32 @@ export async function POST(req: NextRequest) {
     const companyData = await req.json();
     
     // Validate required fields
-    if (!companyData.name || !companyData.location || !companyData.teamSize) {
+    if (!companyData.name || !companyData.location || !companyData.teamSize || 
+        !companyData.email || !companyData.password || !companyData.contactPerson) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
     
     // Connect to the database
     const { db } = await connectToDatabase();
+    
+    // Check if user with this email already exists
+    const existingUser = await db.collection("users").findOne({ email: companyData.email });
+    if (existingUser) {
+      return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+    }
+    
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(companyData.password, 10);
+    
+    // Create user auth record
+    const user = { 
+      email: companyData.email, 
+      password: hashedPassword, 
+      userType: "company", 
+      createdAt: new Date() 
+    };
+    
+    await db.collection("users").insertOne(user);
     
     // Format the company data with default values for metrics
     const company = {
@@ -53,10 +75,24 @@ export async function POST(req: NextRequest) {
     // Insert the company into the database
     await db.collection("companies").insertOne(company);
     
+    // Create company profile
+    const companyProfile: CompanyProfile = {
+      email: companyData.email,
+      companyName: companyData.name,
+      contactPerson: companyData.contactPerson,
+      userType: "company",
+      createdAt: new Date()
+    };
+    
+    await createCompanyProfile(companyProfile);
+    
+    // Remove password from response
+    const { password, ...companyWithoutPassword } = company;
+    
     return NextResponse.json({ 
       success: true, 
       message: "Company added successfully",
-      company
+      company: companyWithoutPassword
     });
   } catch (error) {
     console.error("Error adding company:", error);

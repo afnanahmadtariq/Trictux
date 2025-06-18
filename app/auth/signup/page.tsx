@@ -23,24 +23,18 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    userType: "",
-    name: "",            // For owner
-    companyName: "",     // For company
-    contactPerson: "",   // For company
-    fullName: "",        // For employee
-    position: "",        // For employee
-    department: ""       // For employee
+    userType: "owner", // Default to owner since it's the only option
+    name: "",
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Basic validation
-    if (!formData.email || !formData.password || !formData.userType) {
+    if (!formData.email || !formData.password || !formData.name) {
       toast({
         title: "Missing information",
         description: "Please fill all required fields.",
@@ -54,34 +48,6 @@ export default function SignupPage() {
         title: "Weak password",
         description:
           "Password must be at least 8 characters, include uppercase, lowercase, number, and special character.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Type-specific validation
-    if (formData.userType === "owner" && !formData.name) {
-      toast({
-        title: "Missing information",
-        description: "Please enter your name.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (formData.userType === "company" && (!formData.companyName || !formData.contactPerson)) {
-      toast({
-        title: "Missing information",
-        description: "Please enter company name and contact person.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (formData.userType === "employee" && !formData.fullName) {
-      toast({
-        title: "Missing information",
-        description: "Please enter your full name.",
         variant: "destructive",
       })
       return
@@ -120,38 +86,10 @@ export default function SignupPage() {
     }
     setIsLoading(false)
   }
-
   // Clear irrelevant fields when userType changes
+  // This is now simplified since we only have owners
   useEffect(() => {
-    let updatedFormData = { ...formData }
-    
-    if (formData.userType === "owner") {
-      updatedFormData = {
-        ...updatedFormData,
-        companyName: "",
-        contactPerson: "",
-        fullName: "",
-        position: "",
-        department: ""
-      }
-    } else if (formData.userType === "company") {
-      updatedFormData = {
-        ...updatedFormData,
-        name: "",
-        fullName: "",
-        position: "",
-        department: ""
-      }
-    } else if (formData.userType === "employee") {
-      updatedFormData = {
-        ...updatedFormData,
-        name: "",
-        companyName: "",
-        contactPerson: ""
-      }
-    }
-    
-    setFormData(updatedFormData)
+    // No fields to clear since we only have owner type
   }, [formData.userType])
 
   return (
@@ -208,97 +146,26 @@ export default function SignupPage() {
               <p className="text-xs text-slate-500 mt-1">
                 Password must be at least 8 characters with uppercase, lowercase, number, and special character.
               </p>
-            </div>
-            <div>
+            </div>            <div>
               <Label htmlFor="userType">User Type</Label>
-              <Select
-                value={formData.userType}
-                onValueChange={(value) => setFormData({ ...formData, userType: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owner">Platform Owner</SelectItem>
-                  <SelectItem value="company">Partner Company</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Owner specific fields */}
-            {formData.userType === "owner" && (
-              <div>
-                <Label htmlFor="name">Your Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter your full name"
-                  required
-                />
+              <div className="border rounded p-3 flex items-center gap-2 text-slate-700 bg-slate-50">
+                <span className="font-medium">Platform Owner</span>
+                <span className="text-xs bg-blue-100 text-blue-800 rounded px-2 py-0.5">Only Option</span>
               </div>
-            )}
-
-            {/* Company specific fields */}
-            {formData.userType === "company" && (
-              <>
-                <div>
-                  <Label htmlFor="companyName">Company Name</Label>
-                  <Input
-                    id="companyName"
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    placeholder="Enter company name"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="contactPerson">Contact Person</Label>
-                  <Input
-                    id="contactPerson"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                    placeholder="Enter contact person's name"
-                    required
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Employee specific fields */}
-            {formData.userType === "employee" && (
-              <>
-                <div>
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="position">Position (Optional)</Label>
-                  <Input
-                    id="position"
-                    value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                    placeholder="Enter your position"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="department">Department (Optional)</Label>
-                  <Input
-                    id="department"
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="Enter your department"
-                  />
-                </div>
-              </>
-            )}
+              <p className="text-xs text-slate-500 mt-1">
+                Only owners can sign up directly. Companies and employees are added by owners.
+              </p>
+            </div>{/* Owner specific fields */}
+            <div>
+              <Label htmlFor="name">Your Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing up..." : "Sign Up"}
