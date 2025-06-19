@@ -41,7 +41,8 @@ export default function ClientsPage() {
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)  const [selectedClient, setSelectedClient] = useState<any>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [clientList, setClientList] = useState<any[]>([])
@@ -198,16 +199,15 @@ export default function ClientsPage() {
     setSelectedClient(client)
     setViewDialogOpen(true)
   }
-
   const handleEditClient = (client: any) => {
     setSelectedClient(client)
     setEditClient({
-      name: client.name,
-      industry: client.industry,
-      priority: client.priority,
-      email: client.contact.email,
-      phone: client.contact.phone,
-      location: client.location,
+      name: client.name || "",
+      industry: client.industry || "",
+      priority: client.priority || "Medium",
+      email: client.contact?.email || "",
+      phone: client.contact?.phone || "",
+      location: client.location || "",
       notes: client.notes || ""
     })
     setEditDialogOpen(true)
@@ -346,18 +346,19 @@ export default function ClientsPage() {
       priority: value
     })
   }
-
   const filteredClients = clientList.filter((client) => {
     const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.industry.toLowerCase().includes(searchTerm.toLowerCase())
+      client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.industry?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesPriority = selectedPriority === "All" || client.priority === selectedPriority
     return matchesSearch && matchesPriority
   })
 
-  const totalValue = clientList.reduce((sum, client) => sum + client.totalValue, 0)
-  const avgSatisfaction = clientList.reduce((sum, client) => sum + client.satisfaction, 0) / clientList.length
-  const totalActiveProjects = clientList.reduce((sum, client) => sum + client.activeProjects, 0)
+  const totalValue = clientList.reduce((sum, client) => sum + (client.totalValue || 0), 0)
+  const avgSatisfaction = clientList.length > 0 
+    ? clientList.reduce((sum, client) => sum + (client.satisfaction || 0), 0) / clientList.length 
+    : 0
+  const totalActiveProjects = clientList.reduce((sum, client) => sum + (client.activeProjects || 0), 0)
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -914,9 +915,8 @@ export default function ClientsPage() {
                         >
                           {client.priority}
                         </Badge>
-                      </div>
-                      <p className="text-sm text-slate-600">
-                        {client.industry} • {client.location}
+                      </div>                      <p className="text-sm text-slate-600">
+                        {client.industry} • {client.location || 'Location not specified'}
                       </p>
                     </div>
                     <DropdownMenu>
@@ -950,40 +950,38 @@ export default function ClientsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Contact Info */}
-                  <div className="space-y-2">
+                  {/* Contact Info */}                  <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                       <Mail className="h-4 w-4" />
-                      {client.contact.email}
+                      {client.contact?.email || 'Email not provided'}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                       <Phone className="h-4 w-4" />
-                      {client.contact.phone}
+                      {client.contact?.phone || 'Phone not provided'}
                     </div>
                   </div>
 
-                  {/* Project Stats */}
-                  <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-200">
+                  {/* Project Stats */}                  <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-200">
                     <div>
                       <p className="text-sm text-slate-600">Total Projects</p>
-                      <p className="text-xl font-bold text-slate-900">{client.projects}</p>
+                      <p className="text-xl font-bold text-slate-900">{client.projects || 0}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Active</p>
-                      <p className="text-xl font-bold text-slate-900">{client.activeProjects}</p>
+                      <p className="text-xl font-bold text-slate-900">{client.activeProjects || 0}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Total Value</p>
-                      <p className="text-xl font-bold text-slate-900">${(client.totalValue / 1000).toFixed(0)}K</p>
+                      <p className="text-xl font-bold text-slate-900">${((client.totalValue || 0) / 1000).toFixed(0)}K</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Satisfaction</p>
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <p className="text-xl font-bold text-slate-900">{client.satisfaction}</p>
+                        <p className="text-xl font-bold text-slate-900">{client.satisfaction || 0}</p>
                       </div>
                     </div>
-                  </div>                  {/* Actions */}
+                  </div>{/* Actions */}
                   <div className="flex gap-2 pt-3 border-t border-slate-200">
                     <Link href={`/clients/${(client as any)._id || client.id}`} className="flex-1">
                       <Button 
@@ -998,7 +996,7 @@ export default function ClientsPage() {
                     <Link href={`/projects?client=${client.id}`} className="flex-1">
                       <Button size="sm" className="w-full gap-2">
                         <ArrowUpRight className="h-4 w-4" />
-                        Projects ({client.activeProjects})
+                        Projects ({client.activeProjects || 0})
                       </Button>
                     </Link>
                   </div>
