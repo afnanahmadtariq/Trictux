@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import {
   FolderKanban,
   Plus,
@@ -30,127 +33,57 @@ import {
   Edit,
   Trash2,
   X,
+  MapPin,
+  Target,
+  Briefcase,
+  Loader2,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 
-const projects = [
-  {
-    id: "PRJ-001",
-    name: "E-commerce Platform Redesign",
-    description: "Complete redesign of the e-commerce platform with modern UI/UX",
-    client: {
-      id: "CLI-001",
-      name: "TechCorp Inc.",
-    },
-    company: {
-      id: "COMP-B",
-      name: "Company B",
-    },
-    status: "In Progress",
-    priority: "High",
-    phase: "Development",
-    progress: 65,
-    budget: 85000,
-    spent: 55250,
-    startDate: "2024-01-10",
-    endDate: "2024-03-15",
-    teamLead: "Sarah Johnson",
-    teamSize: 5,
-    milestones: 4,
-    completedMilestones: 2,
-    nextMilestone: "Frontend Components",
-    risk: "Low",
-    tags: ["React", "Node.js", "E-commerce"],
-  },
-  {
-    id: "PRJ-002",
-    name: "Mobile Banking App",
-    description: "Secure mobile banking application with biometric authentication",
-    client: {
-      id: "CLI-002",
-      name: "FinanceFirst",
-    },
-    company: {
-      id: "COMP-C",
-      name: "Company C",
-    },
-    status: "Testing",
-    priority: "Critical",
-    phase: "Testing",
-    progress: 85,
-    budget: 120000,
-    spent: 102000,
-    startDate: "2023-11-15",
-    endDate: "2024-02-28",
-    teamLead: "Mike Chen",
-    teamSize: 7,
-    milestones: 5,
-    completedMilestones: 4,
-    nextMilestone: "Security Audit",
-    risk: "Medium",
-    tags: ["React Native", "Node.js", "Security"],
-  },
-  {
-    id: "PRJ-003",
-    name: "AI Chatbot Integration",
-    description: "Integration of AI-powered chatbot for customer support",
-    client: {
-      id: "CLI-003",
-      name: "ServicePro",
-    },
-    company: {
-      id: "COMP-D",
-      name: "Company D",
-    },
-    status: "Blocked",
-    priority: "Medium",
-    phase: "Design",
-    progress: 25,
-    budget: 45000,
-    spent: 11250,
-    startDate: "2024-01-05",
-    endDate: "2024-04-10",
-    teamLead: "Alex Rodriguez",
-    teamSize: 3,
-    milestones: 3,
-    completedMilestones: 0,
-    nextMilestone: "API Design",
-    risk: "High",
-    tags: ["AI", "Python", "APIs"],
-  },
-  {
-    id: "PRJ-004",
-    name: "Inventory Management System",
-    description: "Real-time inventory tracking and management system",
-    client: {
-      id: "CLI-004",
-      name: "RetailMax",
-    },
-    company: {
-      id: "COMP-B",
-      name: "Company B",
-    },
-    status: "Deploying",
-    priority: "High",
-    phase: "Deployment",
-    progress: 95,
-    budget: 65000,
-    spent: 61750,
-    startDate: "2023-12-01",
-    endDate: "2024-01-25",
-    teamLead: "Emma Wilson",
-    teamSize: 4,
-    milestones: 4,
-    completedMilestones: 4,
-    nextMilestone: "Production Release",
-    risk: "Low",
-    tags: ["Vue.js", "MySQL", "Real-time"],
-  },
-]
+// Project type definition
+interface Project {
+  id: string
+  name: string
+  description: string
+  client: {
+    id: string
+    name: string
+  }
+  company: {
+    id: string
+    name: string
+  }
+  status: string
+  priority: string
+  phase: string
+  progress: number
+  budget: number
+  spent: number
+  startDate: string
+  endDate: string
+  teamLead: string
+  teamSize: number
+  milestones: number
+  completedMilestones: number
+  nextMilestone: string
+  risk: string
+  tags: string[]
+  assignedEmployees?: string[]
+  createdAt?: string
+  updatedAt?: string
+}
 
 export default function ProjectsPage() {
   const searchParams = useSearchParams()
+  const { toast } = useToast()
+  
+  // State for projects and loading
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Filter states
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("All")
   const [selectedPriority, setSelectedPriority] = useState("All")
@@ -168,35 +101,200 @@ export default function ProjectsPage() {
   const [endDateFrom, setEndDateFrom] = useState("")
   const [endDateTo, setEndDateTo] = useState("")
 
+  // Dialog states
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  // Edit form state
+  const [editForm, setEditForm] = useState<Partial<Project>>({})
+
   const statuses = ["All", "Planning", "In Progress", "Testing", "Blocked", "Deploying", "Completed"]
   const priorities = ["All", "Critical", "High", "Medium", "Low"]
   const risks = ["All", "Low", "Medium", "High"]
   
-  // Extract unique companies and clients from projects
-  const companies = ["All", ...Array.from(new Set(projects.map(p => p.company.name)))]
-  const clients = ["All", ...Array.from(new Set(projects.map(p => p.client.name)))]
+  // Extract unique companies and clients from projects (with safe array handling)
+  const companies = ["All", ...Array.from(new Set((projects || []).map(p => p.company?.name).filter(Boolean)))]
+  const clients = ["All", ...Array.from(new Set((projects || []).map(p => p.client?.name).filter(Boolean)))]
+
+  // Fetch projects from API
+  const fetchProjects = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch('/api/projects', {
+        credentials: 'include',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects')
+      }
+      
+      const data = await response.json()
+      setProjects(data.projects || [])
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+      setError('Failed to load projects')
+      setProjects([])
+      toast({
+        title: "Error",
+        description: "Failed to load projects. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle project deletion
+  const handleDeleteProject = async () => {
+    if (!selectedProject) return
+    
+    try {
+      setActionLoading(true)
+      
+      const response = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete project')
+      }
+      
+      // Remove project from local state
+      setProjects(projects.filter(p => p.id !== selectedProject.id))
+      setDeleteDialogOpen(false)
+      setSelectedProject(null)
+      
+      toast({
+        title: "Success",
+        description: `Project "${selectedProject.name}" has been permanently deleted from the database.`,
+      })
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Handle project update
+  const handleUpdateProject = async () => {
+    if (!selectedProject || !editForm) return
+    
+    try {
+      setActionLoading(true)
+      
+      const response = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(editForm),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to update project')
+      }
+      
+      // Update project in local state
+      setProjects(projects.map(p => 
+        p.id === selectedProject.id 
+          ? { ...p, ...editForm }
+          : p
+      ))
+      
+      setEditDialogOpen(false)
+      setSelectedProject(null)
+      setEditForm({})
+      
+      toast({
+        title: "Success",
+        description: `Project "${selectedProject.name}" has been updated successfully.`,
+      })
+    } catch (error) {
+      console.error('Error updating project:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Handle view project details
+  const handleViewProject = (project: Project) => {
+    setSelectedProject(project)
+    setViewDialogOpen(true)
+  }
+
+  // Handle edit project
+  const handleEditProject = (project: Project) => {
+    setSelectedProject(project)
+    setEditForm({
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      priority: project.priority,
+      phase: project.phase,
+      progress: project.progress,
+      budget: project.budget,
+      spent: project.spent,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      teamLead: project.teamLead,
+      teamSize: project.teamSize,
+      milestones: project.milestones,
+      completedMilestones: project.completedMilestones,
+      nextMilestone: project.nextMilestone,
+      risk: project.risk,
+      tags: project.tags,
+    })
+    setEditDialogOpen(true)
+  }
+
+  // Handle delete project confirmation
+  const handleDeleteProjectConfirm = (project: Project) => {
+    setSelectedProject(project)
+    setDeleteDialogOpen(true)
+  }
+  // Load projects on component mount
+  useEffect(() => {
+    fetchProjects()
+  }, [])
 
   // Handle URL parameters for pre-filtering
   useEffect(() => {
     const companyParam = searchParams.get('company')
     const clientParam = searchParams.get('client')
     
-    if (companyParam) {
+    if (companyParam && projects.length > 0) {
       // Find the company name by ID
-      const company = projects.find(p => p.company.id === companyParam)
+      const company = projects.find(p => p.company?.id === companyParam)
       if (company) {
         setSelectedCompany(company.company.name)
       }
     }
     
-    if (clientParam) {
+    if (clientParam && projects.length > 0) {
       // Find the client name by ID
-      const client = projects.find(p => p.client.id === clientParam)
+      const client = projects.find(p => p.client?.id === clientParam)
       if (client) {
         setSelectedClient(client.client.name)
       }
     }
-  }, [searchParams])
+  }, [searchParams, projects])
 
   const clearAdvancedFilters = () => {
     setSelectedCompany("All")
@@ -226,30 +324,29 @@ export default function ProjectsPage() {
            endDateFrom !== "" ||
            endDateTo !== ""
   }
-
-  const filteredProjects = projects.filter((project) => {
+  const filteredProjects = (projects || []).filter((project) => {
     const matchesSearch =
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.company.name.toLowerCase().includes(searchTerm.toLowerCase())
+      project.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = selectedStatus === "All" || project.status === selectedStatus
     const matchesPriority = selectedPriority === "All" || project.priority === selectedPriority
     
     // Advanced filters
-    const matchesCompany = selectedCompany === "All" || project.company.name === selectedCompany
-    const matchesClient = selectedClient === "All" || project.client.name === selectedClient
+    const matchesCompany = selectedCompany === "All" || project.company?.name === selectedCompany
+    const matchesClient = selectedClient === "All" || project.client?.name === selectedClient
     const matchesRisk = selectedRisk === "All" || project.risk === selectedRisk
-    const matchesBudget = project.budget >= budgetRange[0] && project.budget <= budgetRange[1]
-    const matchesProgress = project.progress >= progressRange[0] && project.progress <= progressRange[1]
-    const matchesTeamSize = project.teamSize >= teamSizeRange[0] && project.teamSize <= teamSizeRange[1]
+    const matchesBudget = (project.budget || 0) >= budgetRange[0] && (project.budget || 0) <= budgetRange[1]
+    const matchesProgress = (project.progress || 0) >= progressRange[0] && (project.progress || 0) <= progressRange[1]
+    const matchesTeamSize = (project.teamSize || 1) >= teamSizeRange[0] && (project.teamSize || 1) <= teamSizeRange[1]
     
     // Date filters
-    const projectStartDate = new Date(project.startDate)
-    const projectEndDate = new Date(project.endDate)
-    const matchesStartDateFrom = !startDateFrom || projectStartDate >= new Date(startDateFrom)
-    const matchesStartDateTo = !startDateTo || projectStartDate <= new Date(startDateTo)
-    const matchesEndDateFrom = !endDateFrom || projectEndDate >= new Date(endDateFrom)
-    const matchesEndDateTo = !endDateTo || projectEndDate <= new Date(endDateTo)
+    const projectStartDate = project.startDate ? new Date(project.startDate) : null
+    const projectEndDate = project.endDate ? new Date(project.endDate) : null
+    const matchesStartDateFrom = !startDateFrom || !projectStartDate || projectStartDate >= new Date(startDateFrom)
+    const matchesStartDateTo = !startDateTo || !projectStartDate || projectStartDate <= new Date(startDateTo)
+    const matchesEndDateFrom = !endDateFrom || !projectEndDate || projectEndDate >= new Date(endDateFrom)
+    const matchesEndDateTo = !endDateTo || !projectEndDate || projectEndDate <= new Date(endDateTo)
     
     return matchesSearch && 
            matchesStatus && 
@@ -266,10 +363,10 @@ export default function ProjectsPage() {
            matchesEndDateTo
   })
 
-  const totalBudget = projects.reduce((sum, project) => sum + project.budget, 0)
-  const totalSpent = projects.reduce((sum, project) => sum + project.spent, 0)
-  const totalMilestones = projects.reduce((sum, project) => sum + project.milestones, 0)
-  const completedMilestones = projects.reduce((sum, project) => sum + project.completedMilestones, 0)
+  const totalBudget = (projects || []).reduce((sum, project) => sum + (project.budget || 0), 0)
+  const totalSpent = (projects || []).reduce((sum, project) => sum + (project.spent || 0), 0)
+  const totalMilestones = (projects || []).reduce((sum, project) => sum + (project.milestones || 0), 0)
+  const completedMilestones = (projects || []).reduce((sum, project) => sum + (project.completedMilestones || 0), 0)
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -515,8 +612,7 @@ export default function ProjectsPage() {
 
       {/* Main Content */}
       <div className="flex-1 p-6 bg-slate-50">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Overview Stats */}
+        <div className="max-w-7xl mx-auto space-y-6">          {/* Overview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="border-slate-200">
               <CardContent className="p-6">
@@ -525,7 +621,13 @@ export default function ProjectsPage() {
                     <FolderKanban className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-slate-900">{projects.length}</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {loading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        (projects || []).length
+                      )}
+                    </p>
                     <p className="text-sm text-slate-600">Total Projects</p>
                   </div>
                 </div>
@@ -539,7 +641,11 @@ export default function ProjectsPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-slate-900">
-                      {completedMilestones}/{totalMilestones}
+                      {loading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        `${completedMilestones}/${totalMilestones}`
+                      )}
                     </p>
                     <p className="text-sm text-slate-600">Milestones</p>
                   </div>
@@ -553,7 +659,13 @@ export default function ProjectsPage() {
                     <DollarSign className="h-6 w-6 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-slate-900">${(totalBudget / 1000).toFixed(0)}K</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {loading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        `$${(totalBudget / 1000).toFixed(0)}K`
+                      )}
+                    </p>
                     <p className="text-sm text-slate-600">Total Budget</p>
                   </div>
                 </div>
@@ -567,7 +679,11 @@ export default function ProjectsPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-slate-900">
-                      {projects.reduce((sum, project) => sum + project.teamSize, 0)}
+                      {loading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        (projects || []).reduce((sum, project) => sum + (project.teamSize || 0), 0)
+                      )}
                     </p>
                     <p className="text-sm text-slate-600">Team Members</p>
                   </div>
@@ -700,7 +816,7 @@ export default function ProjectsPage() {
             {/* Results count */}
             <div className="flex items-center justify-between">
               <div className="text-sm text-slate-600">
-                Showing <span className="font-medium">{filteredProjects.length}</span> of <span className="font-medium">{projects.length}</span> projects
+                Showing <span className="font-medium">{(filteredProjects || []).length}</span> of <span className="font-medium">{(projects || []).length}</span> projects
               </div>
               {filteredProjects.length === 0 && (
                 <Button variant="outline" size="sm" onClick={clearAdvancedFilters}>
@@ -709,9 +825,34 @@ export default function ProjectsPage() {
                 </Button>
               )}
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredProjects.length === 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {loading ? (
+              // Loading state
+              <div className="col-span-full">
+                <Card className="border-slate-200">
+                  <CardContent className="p-12 text-center">
+                    <Loader2 className="h-12 w-12 text-slate-400 mx-auto mb-4 animate-spin" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">Loading projects...</h3>
+                    <p className="text-slate-600">Please wait while we fetch your projects.</p>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : error ? (
+              // Error state
+              <div className="col-span-full">
+                <Card className="border-slate-200">
+                  <CardContent className="p-12 text-center">
+                    <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">Failed to load projects</h3>
+                    <p className="text-slate-600 mb-4">{error}</p>
+                    <Button onClick={fetchProjects} variant="outline">
+                      Try Again
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (filteredProjects || []).length === 0 ? (
+              // No projects found
               <div className="col-span-full">
                 <Card className="border-slate-200">
                   <CardContent className="p-12 text-center">
@@ -739,17 +880,16 @@ export default function ProjectsPage() {
                 </Card>
               </div>
             ) : (
-              filteredProjects.map((project) => (
+              (filteredProjects || []).map((project) => (
               <Card key={project.id} className="border-slate-200 hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        {getStatusIcon(project.status)}
-                        <CardTitle className="text-lg">
-                          <Link href={`/projects/${project.id}`} className="hover:text-blue-600 transition-colors">
-                            {project.name}
-                          </Link>
+                        {getStatusIcon(project.status || '')}                        <CardTitle className="text-lg">
+                          <span className="hover:text-blue-600 transition-colors cursor-pointer" onClick={() => handleViewProject(project)}>
+                            {project.name || 'Unnamed Project'}
+                          </span>
                         </CardTitle>
                         <Badge
                           variant={
@@ -760,48 +900,52 @@ export default function ProjectsPage() {
                                 : "secondary"
                           }
                         >
-                          {project.priority}
+                          {project.priority || 'N/A'}
                         </Badge>
-                      </div>
-                      <p className="text-sm text-slate-600 mb-2">{project.description}</p>
+                      </div>                      <p className="text-sm text-slate-600 mb-2">{project.description || 'No description provided'}</p>
                       <div className="flex items-center gap-4 text-sm text-slate-500">
-                        <Link href={`/clients/${project.client.id}`} className="hover:text-blue-600 transition-colors">
-                          {project.client.name}
-                        </Link>
+                        {project.client?.id ? (
+                          <Link href={`/clients/${project.client.id}`} className="hover:text-blue-600 transition-colors">
+                            {project.client.name || 'Unknown Client'}
+                          </Link>
+                        ) : (
+                          <span>{project.client?.name || 'Unknown Client'}</span>
+                        )}
                         <span>•</span>
-                        <Link
-                          href={`/companies/${project.company.id}`}
-                          className="hover:text-blue-600 transition-colors"
-                        >
-                          {project.company.name}
-                        </Link>
+                        {project.company?.id ? (
+                          <Link
+                            href={`/companies/${project.company.id}`}
+                            className="hover:text-blue-600 transition-colors"
+                          >
+                            {project.company.name || 'Unknown Company'}
+                          </Link>
+                        ) : (
+                          <span>{project.company?.name || 'Unknown Company'}</span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge variant={project.status === "Blocked" ? "destructive" : "default"}>{project.status}</Badge>
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(project.risk)}`}>
-                        {project.risk} Risk
+                    <div className="flex flex-col items-end gap-2">                      <Badge variant={project.status === "Blocked" ? "destructive" : "default"}>{project.status || 'N/A'}</Badge>
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(project.risk || 'Low')}`}>
+                        {project.risk || 'Low'} Risk
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/projects/${project.id}`} className="gap-2">
-                              <Eye className="h-4 w-4" />
-                              View Details
-                            </Link>
+                        </DropdownMenuTrigger>                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewProject(project)} className="gap-2">
+                            <Eye className="h-4 w-4" />
+                            View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/projects/${project.id}/edit`} className="gap-2">
-                              <Edit className="h-4 w-4" />
-                              Edit Project
-                            </Link>
+                          <DropdownMenuItem onClick={() => handleEditProject(project)} className="gap-2">
+                            <Edit className="h-4 w-4" />
+                            Edit Project
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-red-600">
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteProjectConfirm(project)} 
+                            className="gap-2 text-red-600"
+                          >
                             <Trash2 className="h-4 w-4" />
                             Delete
                           </DropdownMenuItem>
@@ -810,34 +954,33 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Progress */}
+                <CardContent className="space-y-4">                  {/* Progress */}
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-slate-600">Progress</span>
-                      <span className="font-medium text-slate-900">{project.progress}%</span>
+                      <span className="font-medium text-slate-900">{project.progress || 0}%</span>
                     </div>
-                    <Progress value={project.progress} className="h-2" />
+                    <Progress value={project.progress || 0} className="h-2" />
                   </div>
 
                   {/* Project Stats */}
                   <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-200">
                     <div>
                       <p className="text-sm text-slate-600">Budget</p>
-                      <p className="font-semibold text-slate-900">${(project.budget / 1000).toFixed(0)}K</p>
+                      <p className="font-semibold text-slate-900">${((project.budget || 0) / 1000).toFixed(0)}K</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Spent</p>
-                      <p className="font-semibold text-slate-900">${(project.spent / 1000).toFixed(0)}K</p>
+                      <p className="font-semibold text-slate-900">${((project.spent || 0) / 1000).toFixed(0)}K</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Team Size</p>
-                      <p className="font-semibold text-slate-900">{project.teamSize} members</p>
+                      <p className="font-semibold text-slate-900">{project.teamSize || 1} members</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Milestones</p>
                       <p className="font-semibold text-slate-900">
-                        {project.completedMilestones}/{project.milestones}
+                        {project.completedMilestones || 0}/{project.milestones || 0}
                       </p>
                     </div>
                   </div>
@@ -846,17 +989,17 @@ export default function ProjectsPage() {
                   <div className="flex items-center justify-between text-sm text-slate-600 pt-3 border-t border-slate-200">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      {project.startDate} - {project.endDate}
+                      {project.startDate || 'N/A'} - {project.endDate || 'N/A'}
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      {project.teamLead}
+                      {project.teamLead || 'Unassigned'}
                     </div>
                   </div>
 
                   {/* Tags */}
                   <div className="flex flex-wrap gap-1 pt-2">
-                    {project.tags.map((tag) => (
+                    {(project.tags || []).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
                         {tag}
                       </Badge>
@@ -865,25 +1008,449 @@ export default function ProjectsPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-3 border-t border-slate-200">
-                    <Link href={`/projects/${project.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full gap-2">
-                        <Eye className="h-4 w-4" />
-                        View Details
-                      </Button>
-                    </Link>
-                    <Button size="sm" className="flex-1 gap-2">
-                      <Building2 className="h-4 w-4" />
-                      Contact Team
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-2"
+                      onClick={() => handleViewProject(project)}
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Details
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="flex-1 gap-2"
+                      onClick={() => handleEditProject(project)}
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             ))
             )}
-          </div>
-          </div>
+          </div>          </div>
         </div>
       </div>
+
+      {/* View Project Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Project Details
+            </DialogTitle>
+            <DialogDescription>
+              View detailed information about this project
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProject && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Project Name</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.name || 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Status</Label>
+                  <Badge variant={selectedProject.status === "Blocked" ? "destructive" : "default"}>
+                    {selectedProject.status || 'N/A'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Description</Label>
+                <p className="text-sm text-slate-600">{selectedProject.description || 'No description provided'}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Client</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.client?.name || 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Company</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.company?.name || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Priority</Label>
+                  <Badge variant={
+                    selectedProject.priority === "Critical" ? "destructive" :
+                    selectedProject.priority === "High" ? "default" : "secondary"
+                  }>
+                    {selectedProject.priority || 'N/A'}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Phase</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.phase || 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Risk Level</Label>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(selectedProject.risk || 'Low')}`}>
+                    {selectedProject.risk || 'N/A'} Risk
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Progress</Label>
+                <div className="space-y-2">
+                  <Progress value={selectedProject.progress || 0} className="h-2" />
+                  <p className="text-sm text-slate-600">{selectedProject.progress || 0}% Complete</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Budget</Label>
+                  <p className="text-sm text-slate-900">${(selectedProject.budget || 0).toLocaleString()}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Spent</Label>
+                  <p className="text-sm text-slate-900">${(selectedProject.spent || 0).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Start Date</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.startDate || 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">End Date</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.endDate || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Team Lead</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.teamLead || 'Unassigned'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Team Size</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.teamSize || 1} members</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Milestones</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.completedMilestones || 0}/{selectedProject.milestones || 0}</p>
+                </div>
+              </div>
+
+              {selectedProject.nextMilestone && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Next Milestone</Label>
+                  <p className="text-sm text-slate-900">{selectedProject.nextMilestone}</p>
+                </div>
+              )}
+
+              {(selectedProject.tags || []).length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tags</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {(selectedProject.tags || []).map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit Project
+            </DialogTitle>
+            <DialogDescription>
+              Update project information and details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Project Name</Label>
+                <Input
+                  id="name"
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="Enter project name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select 
+                  value={editForm.status || ''} 
+                  onValueChange={(value) => setEditForm({ ...editForm, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.filter(s => s !== "All").map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={editForm.description || ''}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                placeholder="Enter project description"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select 
+                  value={editForm.priority || ''} 
+                  onValueChange={(value) => setEditForm({ ...editForm, priority: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorities.filter(p => p !== "All").map((priority) => (
+                      <SelectItem key={priority} value={priority}>
+                        {priority}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phase">Phase</Label>
+                <Input
+                  id="phase"
+                  value={editForm.phase || ''}
+                  onChange={(e) => setEditForm({ ...editForm, phase: e.target.value })}
+                  placeholder="Enter project phase"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="risk">Risk Level</Label>
+                <Select 
+                  value={editForm.risk || ''} 
+                  onValueChange={(value) => setEditForm({ ...editForm, risk: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select risk level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {risks.filter(r => r !== "All").map((risk) => (
+                      <SelectItem key={risk} value={risk}>
+                        {risk}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="progress">Progress (%)</Label>
+              <div className="px-2">
+                <Slider
+                  value={[editForm.progress || 0]}
+                  onValueChange={(value) => setEditForm({ ...editForm, progress: value[0] })}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-sm text-slate-600 mt-1">
+                  <span>0%</span>
+                  <span>{editForm.progress || 0}%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="budget">Budget ($)</Label>
+                <Input
+                  id="budget"
+                  type="number"
+                  value={editForm.budget || ''}
+                  onChange={(e) => setEditForm({ ...editForm, budget: parseInt(e.target.value) || 0 })}
+                  placeholder="Enter budget amount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="spent">Spent ($)</Label>
+                <Input
+                  id="spent"
+                  type="number"
+                  value={editForm.spent || ''}
+                  onChange={(e) => setEditForm({ ...editForm, spent: parseInt(e.target.value) || 0 })}
+                  placeholder="Enter spent amount"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={editForm.startDate || ''}
+                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={editForm.endDate || ''}
+                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="teamLead">Team Lead</Label>
+                <Input
+                  id="teamLead"
+                  value={editForm.teamLead || ''}
+                  onChange={(e) => setEditForm({ ...editForm, teamLead: e.target.value })}
+                  placeholder="Enter team lead name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="teamSize">Team Size</Label>
+                <Input
+                  id="teamSize"
+                  type="number"
+                  min="1"
+                  value={editForm.teamSize || ''}
+                  onChange={(e) => setEditForm({ ...editForm, teamSize: parseInt(e.target.value) || 1 })}
+                  placeholder="Enter team size"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="milestones">Total Milestones</Label>
+                <Input
+                  id="milestones"
+                  type="number"
+                  min="0"
+                  value={editForm.milestones || ''}
+                  onChange={(e) => setEditForm({ ...editForm, milestones: parseInt(e.target.value) || 0 })}
+                  placeholder="Enter milestone count"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="completedMilestones">Completed Milestones</Label>
+                <Input
+                  id="completedMilestones"
+                  type="number"
+                  min="0"
+                  max={editForm.milestones || 0}
+                  value={editForm.completedMilestones || ''}
+                  onChange={(e) => setEditForm({ ...editForm, completedMilestones: parseInt(e.target.value) || 0 })}
+                  placeholder="Enter completed milestones"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nextMilestone">Next Milestone</Label>
+                <Input
+                  id="nextMilestone"
+                  value={editForm.nextMilestone || ''}
+                  onChange={(e) => setEditForm({ ...editForm, nextMilestone: e.target.value })}
+                  placeholder="Enter next milestone"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setEditDialogOpen(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateProject}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Project'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Permanently Delete Project
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The project "{selectedProject?.name}" will be permanently deleted from the database.
+              <br /><br />
+              <strong>Warning:</strong> This is a permanent deletion and cannot be recovered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              disabled={actionLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Permanently Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
