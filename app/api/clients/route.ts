@@ -225,22 +225,51 @@ export async function DELETE(req: NextRequest) {
     
     if (!clientId) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
-    }
-
-    const { db } = await connectToDatabase();
+    }    const { db } = await connectToDatabase();
     const { ObjectId } = await import("mongodb");
     
-    // Update status to inactive instead of deleting
-    const result = await db.collection("clients").updateOne(
-      { _id: new ObjectId(clientId) },
-      { $set: { status: "Inactive", updatedAt: new Date() } }
-    );
+    // First, get the client to find the associated user email
+    let client;
+    try {
+      client = await db.collection("clients").findOne({ _id: new ObjectId(clientId) });
+    } catch {
+      // If ObjectId fails, try finding by custom id
+      client = await db.collection("clients").findOne({ id: clientId });
+    }
+    
+    if (!client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+    
+    // Update client status to inactive instead of deleting
+    let result;
+    try {
+      result = await db.collection("clients").updateOne(
+        { _id: new ObjectId(clientId) },
+        { $set: { status: "Inactive", updatedAt: new Date() } }
+      );
+    } catch {
+      result = await db.collection("clients").updateOne(
+        { id: clientId },
+        { $set: { status: "Inactive", updatedAt: new Date() } }
+      );
+    }
     
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }    // Also deactivate the associated user account
+    if (client.contact?.email) {
+      console.log(`Deactivating user account for email: ${client.contact.email}`);
+      const userResult = await db.collection("users").updateOne(
+        { email: client.contact.email, userType: "client" },
+        { $set: { status: "Inactive", updatedAt: new Date() } }
+      );
+      console.log(`User account update result:`, userResult);
+    } else {
+      console.log("No email found for client, skipping user account deactivation");
     }
 
-    return NextResponse.json({ message: "Client deactivated successfully" });
+    return NextResponse.json({ message: "Client and associated user account deactivated successfully" });
 
   } catch (error) {
     console.error("Error deleting client:", error);

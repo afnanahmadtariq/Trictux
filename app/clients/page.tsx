@@ -381,12 +381,11 @@ export default function ClientsPage() {
       })
       
       const data = await response.json()
-      
-      if (response.ok) {
+        if (response.ok) {
         toast({
           title: "Client deleted",
-          description: `${selectedClient.name} has been deactivated successfully.`
-        })        // Remove the client from the list
+          description: `${selectedClient.name} and their user account have been deactivated successfully.`
+        })// Remove the client from the list
         setClientList(clientList.filter(client => ((client as any)._id || client.id) !== ((selectedClient as any)._id || selectedClient.id)))
         
         setDeleteDialogOpen(false)
@@ -829,11 +828,10 @@ export default function ClientsPage() {
                   <AlertDialogTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-red-600" />
                     Delete Client
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
+                  </AlertDialogTitle>                  <AlertDialogDescription>
                     Are you sure you want to delete <strong>{selectedClient?.name}</strong>? 
-                    This action will deactivate the client and cannot be undone. All associated 
-                    projects will be preserved but the client will no longer be accessible.
+                    This action will deactivate the client and their associated user account, and cannot be undone. 
+                    All associated projects will be preserved but the client and their login access will no longer be available.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

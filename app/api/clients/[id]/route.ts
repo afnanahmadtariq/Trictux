@@ -137,14 +137,24 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     // Only owners can delete clients
     if (auth.user?.userType !== "owner") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const { db } = await connectToDatabase();
+    }    const { db } = await connectToDatabase();
     const { ObjectId } = await import("mongodb");
     
-    let result;
+    // First, get the client to find the associated user email
+    let client;
+    try {
+      client = await db.collection("clients").findOne({ _id: new ObjectId(params.id) });
+    } catch {
+      // If ObjectId fails, try finding by custom id
+      client = await db.collection("clients").findOne({ id: params.id });
+    }
     
-    // Try to update by ObjectId first, then by custom id
+    if (!client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+    
+    // Update client status to inactive
+    let result;
     try {
       result = await db.collection("clients").updateOne(
         { _id: new ObjectId(params.id) },
@@ -160,9 +170,19 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }    // Also deactivate the associated user account
+    if (client.contact?.email) {
+      console.log(`Deactivating user account for email: ${client.contact.email}`);
+      const userResult = await db.collection("users").updateOne(
+        { email: client.contact.email, userType: "client" },
+        { $set: { status: "Inactive", updatedAt: new Date() } }
+      );
+      console.log(`User account update result:`, userResult);
+    } else {
+      console.log("No email found for client, skipping user account deactivation");
     }
 
-    return NextResponse.json({ message: "Client deactivated successfully" });
+    return NextResponse.json({ message: "Client and associated user account deactivated successfully" });
 
   } catch (error) {
     console.error("Error deleting client:", error);
