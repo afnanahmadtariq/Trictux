@@ -195,14 +195,14 @@ export default function ClientDetailsPage() {
       setIsSubmitting(true)
       
       const response = await fetch(`/api/clients/${(client as any)?._id || client?.id}`, {
-        method: "DELETE",
-      })
+        method: "DELETE",      })
       
       const data = await response.json()
-        if (response.ok) {
+      
+      if (response.ok) {
         toast({
           title: "Client deleted",
-          description: `${client.name} and their user account have been deactivated successfully.`
+          description: `${client.name} and their user account have been permanently deleted.`
         })
         
         router.push('/clients')
@@ -653,8 +653,8 @@ export default function ClientDetailsPage() {
               Delete Client
             </AlertDialogTitle>            <AlertDialogDescription>
               Are you sure you want to delete <strong>{client?.name}</strong>? 
-              This action will deactivate the client and their associated user account, and cannot be undone. 
-              All associated projects will be preserved but the client and their login access will no longer be available.
+              This action will permanently delete the client and their associated user account from the database. 
+              This cannot be undone. All associated projects will remain but will lose their client reference.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

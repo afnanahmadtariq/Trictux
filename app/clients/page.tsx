@@ -33,84 +33,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
-const clients = [
-  {
-    id: "CLI-001",
-    name: "TechCorp Inc.",
-    industry: "Technology",
-    priority: "High",
-    projects: 8,
-    activeProjects: 3,
-    totalValue: 450000,
-    lastContact: "2024-01-15",
-    satisfaction: 4.8,
-    status: "Active",
-    contact: {
-      email: "contact@techcorp.com",
-      phone: "+1 (555) 123-4567",
-      person: "John Smith",
-    },
-    location: "San Francisco, CA",
-    joinDate: "2022-03-15",
-  },
-  {
-    id: "CLI-002",
-    name: "FinanceFirst",
-    industry: "Finance",
-    priority: "Critical",
-    projects: 12,
-    activeProjects: 5,
-    totalValue: 780000,
-    lastContact: "2024-01-18",
-    satisfaction: 4.9,
-    status: "Active",
-    contact: {
-      email: "projects@financefirst.com",
-      phone: "+1 (555) 987-6543",
-      person: "Sarah Johnson",
-    },
-    location: "New York, NY",
-    joinDate: "2021-08-22",
-  },
-  {
-    id: "CLI-003",
-    name: "ServicePro",
-    industry: "Services",
-    priority: "Medium",
-    projects: 6,
-    activeProjects: 2,
-    totalValue: 320000,
-    lastContact: "2024-01-12",
-    satisfaction: 4.6,
-    status: "Active",
-    contact: {
-      email: "hello@servicepro.com",
-      phone: "+1 (555) 456-7890",
-      person: "Mike Chen",
-    },
-    location: "Austin, TX",
-    joinDate: "2023-01-10",
-  },
-  {
-    id: "CLI-004",
-    name: "RetailMax",
-    industry: "Retail",
-    priority: "High",
-    projects: 4,
-    activeProjects: 1,
-    totalValue: 180000,
-    lastContact: "2024-01-16",
-    satisfaction: 4.7,
-    status: "Active",
-    contact: {
-      email: "tech@retailmax.com",
-      phone: "+1 (555) 321-0987",
-      person: "Emma Wilson",
-    },
-    location: "Chicago, IL",
-    joinDate: "2023-06-05",
-  },
-]
 
 export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -119,11 +41,10 @@ export default function ClientsPage() {
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [selectedClient, setSelectedClient] = useState<any>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)  const [selectedClient, setSelectedClient] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [clientList, setClientList] = useState(clients)
+  const [clientList, setClientList] = useState<any[]>([])
   const { toast } = useToast()
 
   // Fetch clients from the database on page load
@@ -377,15 +298,17 @@ export default function ClientsPage() {
       setIsSubmitting(true)
       
       const response = await fetch(`/api/clients/${(selectedClient as any)._id || selectedClient.id}`, {
-        method: "DELETE",
-      })
+        method: "DELETE",      })
       
       const data = await response.json()
-        if (response.ok) {
+      
+      if (response.ok) {
         toast({
           title: "Client deleted",
-          description: `${selectedClient.name} and their user account have been deactivated successfully.`
-        })// Remove the client from the list
+          description: `${selectedClient.name} and their user account have been permanently deleted.`
+        })
+        
+        // Remove the client from the list
         setClientList(clientList.filter(client => ((client as any)._id || client.id) !== ((selectedClient as any)._id || selectedClient.id)))
         
         setDeleteDialogOpen(false)
@@ -830,8 +753,8 @@ export default function ClientsPage() {
                     Delete Client
                   </AlertDialogTitle>                  <AlertDialogDescription>
                     Are you sure you want to delete <strong>{selectedClient?.name}</strong>? 
-                    This action will deactivate the client and their associated user account, and cannot be undone. 
-                    All associated projects will be preserved but the client and their login access will no longer be available.
+                    This action will permanently delete the client and their associated user account from the database. 
+                    This cannot be undone. All associated projects will remain but will lose their client reference.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

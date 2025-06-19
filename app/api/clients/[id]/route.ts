@@ -152,37 +152,30 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
-    
-    // Update client status to inactive
+      // Delete the client from database
     let result;
     try {
-      result = await db.collection("clients").updateOne(
-        { _id: new ObjectId(params.id) },
-        { $set: { status: "Inactive", updatedAt: new Date() } }
-      );
+      result = await db.collection("clients").deleteOne({ _id: new ObjectId(params.id) });
     } catch {
-      // If ObjectId fails, try updating by custom id
-      result = await db.collection("clients").updateOne(
-        { id: params.id },
-        { $set: { status: "Inactive", updatedAt: new Date() } }
-      );
+      // If ObjectId fails, try deleting by custom id
+      result = await db.collection("clients").deleteOne({ id: params.id });
     }
     
-    if (result.matchedCount === 0) {
+    if (result.deletedCount === 0) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
-    }    // Also deactivate the associated user account
+    }    // Also delete the associated user account
     if (client.contact?.email) {
-      console.log(`Deactivating user account for email: ${client.contact.email}`);
-      const userResult = await db.collection("users").updateOne(
-        { email: client.contact.email, userType: "client" },
-        { $set: { status: "Inactive", updatedAt: new Date() } }
-      );
-      console.log(`User account update result:`, userResult);
+      console.log(`Deleting user account for email: ${client.contact.email}`);
+      const userResult = await db.collection("users").deleteOne({
+        email: client.contact.email,
+        userType: "client"
+      });
+      console.log(`User account deletion result:`, userResult);
     } else {
-      console.log("No email found for client, skipping user account deactivation");
+      console.log("No email found for client, skipping user account deletion");
     }
 
-    return NextResponse.json({ message: "Client and associated user account deactivated successfully" });
+    return NextResponse.json({ message: "Client and associated user account deleted successfully" });
 
   } catch (error) {
     console.error("Error deleting client:", error);
