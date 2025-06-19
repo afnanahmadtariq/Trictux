@@ -86,10 +86,15 @@ export async function GET(req: NextRequest) {
           id: user._id.toString(),
           email: user.email,
           userType: user.userType,
-          createdAt: user.createdAt || null,
-          lastLogin: user.lastLogin || null,
+          createdAt: user.createdAt?.toISOString() || null,
+          lastLogin: user.lastLogin?.toISOString() || null,
           status: user.status || "active",
-          profile: profile || null
+          profile: profile ? {
+            name: profile.name || profile.fullName || profile.companyName || profile.contactPerson || "",
+            position: profile.position || "",
+            company: profile.company || profile.companyName || "",
+            department: profile.department || ""
+          } : null
         };
       })
     );

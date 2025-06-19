@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongo";
 import { verify } from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { createClient, getAllClients, getClientsByCompany, updateClient, Client } from "@/lib/actors";
 
 const JWT_SECRET = process.env.JWT_SECRET || "trictux-secret-key";
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
       // Companies can only see their own clients
       const { db } = await connectToDatabase();
       const companyProfile = await db.collection("companies").findOne({ email: auth.user.email });
-      clients = await getClientsByCompany(companyProfile?._id?.toString() || auth.user.email);
+      clients = await getClientsByCompany(companyProfile?.id || companyProfile?._id?.toString() || auth.user.email);
     } else {
       // Employees can see clients from projects they're assigned to
       const { db } = await connectToDatabase();
@@ -53,40 +54,16 @@ export async function GET(req: NextRequest) {
         assignedEmployees: { $in: [auth.user?.email] }
       }).toArray();
       
-      const clientIds = [...new Set(projects.map(p => p.clientId))];
-      const { ObjectId } = await import("mongodb");
+      const clientIds = projects.map(p => p.client.id);
       clients = await db.collection("clients").find({ 
-        _id: { $in: clientIds.map(id => new ObjectId(id)) }
+        id: { $in: clientIds }
       }).toArray();
     }
 
-    // Add project count for each client
-    const { db } = await connectToDatabase();
-    const clientsWithStats = await Promise.all(
-      clients.map(async (client) => {
-        const projects = await db.collection("projects").find({ 
-          clientId: client._id?.toString() 
-        }).toArray();
-        
-        return {
-          ...client,
-          id: client._id?.toString(),
-          totalProjects: projects.length,
-          activeProjects: projects.filter(p => p.status === "in-progress").length,
-          completedProjects: projects.filter(p => p.status === "completed").length
-        };
-      })
-    );
-
-    return NextResponse.json({ clients: clientsWithStats });
-
+    return NextResponse.json({ clients });
   } catch (error) {
     console.error("Error fetching clients:", error);
-    return NextResponse.json({ 
-      error: "Failed to fetch clients" 
-    }, { 
-      status: 500 
-    });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -99,112 +76,174 @@ export async function POST(req: NextRequest) {
     }
 
     // Only owners and companies can create clients
-    if (auth.user?.userType === "employee") {
+    if (!["owner", "company"].includes(auth.user?.userType)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const data = await req.json();
-    const { name, email, phone, company, address, notes, companyId } = data;
+    const body = await req.json();
+    const { name, industry, priority, email, password, phone, location, notes } = body;
 
-    if (!name || !email) {
+    // Validate required fields
+    if (!name || !industry || !email || !password) {
       return NextResponse.json({ 
-        error: "Name and email are required" 
-      }, { 
-        status: 400 
-      });
+        error: "Missing required fields: name, industry, email, password" 
+      }, { status: 400 });
     }
 
-    // Determine companyId based on user type
-    let finalCompanyId = companyId;
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return NextResponse.json({ 
+        error: "Password must be at least 8 characters, include uppercase, lowercase, number, and special character" 
+      }, { status: 400 });
+    }
+
+    // Check if email already exists
+    const { db } = await connectToDatabase();
+    const existingUser = await db.collection("users").findOne({ email });
+    if (existingUser) {
+      return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Get company info
+    let companyId = "";
     if (auth.user?.userType === "company") {
-      const { db } = await connectToDatabase();
       const companyProfile = await db.collection("companies").findOne({ email: auth.user.email });
-      finalCompanyId = companyProfile?._id?.toString() || auth.user.email;
+      companyId = companyProfile?.id || companyProfile?._id?.toString() || auth.user.email;
     }
 
-    const client: Omit<Client, '_id'> = {
+    // Generate client ID
+    const clientId = `CLI-${Date.now()}`;
+
+    // Create client profile
+    const clientData: Omit<Client, '_id'> = {
+      id: clientId,
       name,
-      email,
-      phone,
-      company,
-      address,
-      notes,
-      status: "active",
+      industry,
+      priority: priority || "Medium",
+      projects: 0,
+      activeProjects: 0,
+      totalValue: 0,
+      lastContact: new Date().toISOString().split('T')[0],
+      satisfaction: 0,
+      status: "Active",
+      contact: {
+        email,
+        phone: phone || "",
+        person: name
+      },
+      location: location || "",
+      joinDate: new Date().toISOString().split('T')[0],
+      notes: notes || "",
       createdAt: new Date(),
       createdBy: auth.user?.email || "",
-      companyId: finalCompanyId
+      companyId
     };
 
-    const result = await createClient(client);
+    // Create client in database
+    const result = await createClient(clientData);
+
+    // Create user account for client
+    await db.collection("users").insertOne({
+      email,
+      password: hashedPassword,
+      userType: "client",
+      clientId: result.insertedId.toString(),
+      createdAt: new Date(),
+      status: "Active"
+    });
+
+    // Return the created client
+    const createdClient = await db.collection("clients").findOne({ _id: result.insertedId });
 
     return NextResponse.json({ 
-      success: true, 
-      clientId: result.insertedId,
-      message: "Client created successfully"
-    });
+      client: createdClient,
+      message: "Client created successfully" 
+    }, { status: 201 });
 
   } catch (error) {
     console.error("Error creating client:", error);
-    return NextResponse.json({ 
-      error: "Failed to create client" 
-    }, { 
-      status: 500 
-    });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-// PATCH - Update client
-export async function PATCH(req: NextRequest) {
+// PUT - Update client
+export async function PUT(req: NextRequest) {
   try {
     const auth = await verifyAuth(req);
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    // Employees cannot update clients
-    if (auth.user?.userType === "employee") {
+    // Only owners and companies can update clients
+    if (!["owner", "company"].includes(auth.user?.userType)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const data = await req.json();
-    const { clientId, updates } = data;
-
+    const url = new URL(req.url);
+    const clientId = url.searchParams.get('id');
+    
     if (!clientId) {
-      return NextResponse.json({ 
-        error: "Client ID is required" 
-      }, { 
-        status: 400 
-      });
+      return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
     }
 
-    // Check permissions for companies
-    if (auth.user?.userType === "company") {
-      const { db } = await connectToDatabase();
-      const { ObjectId } = await import("mongodb");
-      const client = await db.collection("clients").findOne({ 
-        _id: new ObjectId(clientId) 
-      });
+    const body = await req.json();
+    const updates = { ...body, updatedAt: new Date() };
 
-      if (!client) {
-        return NextResponse.json({ error: "Client not found" }, { status: 404 });
-      }
-
-      const companyProfile = await db.collection("companies").findOne({ email: auth.user.email });
-      if (client.companyId !== companyProfile?._id?.toString() && client.companyId !== auth.user.email) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
+    const result = await updateClient(clientId, updates);
+    
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    await updateClient(clientId, updates);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ message: "Client updated successfully" });
 
   } catch (error) {
     console.error("Error updating client:", error);
-    return NextResponse.json({ 
-      error: "Failed to update client" 
-    }, { 
-      status: 500 
-    });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// DELETE - Delete client
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    // Only owners can delete clients
+    if (auth.user?.userType !== "owner") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const url = new URL(req.url);
+    const clientId = url.searchParams.get('id');
+    
+    if (!clientId) {
+      return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
+    }
+
+    const { db } = await connectToDatabase();
+    const { ObjectId } = await import("mongodb");
+    
+    // Update status to inactive instead of deleting
+    const result = await db.collection("clients").updateOne(
+      { _id: new ObjectId(clientId) },
+      { $set: { status: "Inactive", updatedAt: new Date() } }
+    );
+    
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Client deactivated successfully" });
+
+  } catch (error) {
+    console.error("Error deleting client:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

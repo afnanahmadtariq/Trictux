@@ -53,28 +53,14 @@ export async function GET(req: NextRequest) {
       projects = await db.collection("projects").find({ 
         assignedEmployees: { $in: [auth.user?.email] }
       }).toArray();
-    }    // Filter by client if specified
-    if (clientId) {
-      projects = projects.filter((p: any) => p.client?.id === clientId || p.clientId === clientId);
     }
 
-    // Transform projects to match frontend expectations
-    const transformedProjects = projects.map((project: any) => ({
-      ...project,
-      id: project.id || project._id?.toString(),
-      // Ensure all required fields exist with defaults
-      progress: project.progress || 0,
-      spent: project.spent || 0,
-      milestones: project.milestones || 0,
-      completedMilestones: project.completedMilestones || 0,
-      teamSize: project.teamSize || 1,
-      tags: project.tags || [],
-      // Ensure nested objects exist
-      client: project.client || { id: project.clientId, name: "Unknown Client" },
-      company: project.company || { id: project.companyId, name: "Unknown Company" }
-    }));
+    // Filter by client if specified
+    if (clientId) {
+      projects = projects.filter((p: any) => p.client?.id === clientId);
+    }
 
-    return NextResponse.json({ projects: transformedProjects });
+    return NextResponse.json({ projects });
 
   } catch (error) {
     console.error("Error fetching projects:", error);

@@ -14,10 +14,23 @@ export type OwnerProfile = {
 };
 
 export type CompanyProfile = {
+  _id?: string;
+  id: string;
   email: string;
-  companyName: string;
-  contactPerson: string;
-  address?: string;
+  name: string;
+  location: string;
+  specialties: string[];
+  currentWorkload: number;
+  successRate: number;
+  avgDeliveryTime: string;
+  activeProjects: number;
+  completedProjects: number;
+  teamSize: number;
+  rating: number;
+  lastDelivery: string;
+  revenue: number;
+  status: "Active" | "Inactive";
+  joinDate: string;
   userType: "company";
   createdAt: Date;
   updatedAt?: Date;
@@ -27,8 +40,9 @@ export type CompanyProfile = {
   size?: string;
   description?: string;
   avatar?: string;
-  status: "active" | "inactive";
   verified: boolean;
+  contactPerson?: string;
+  address?: string;
 };
 
 export type EmployeeProfile = {
@@ -52,18 +66,32 @@ export type EmployeeProfile = {
 
 export type Project = {
   _id?: string;
-  title: string;
+  id: string;
+  name: string;
   description: string;
-  status: "planning" | "in-progress" | "completed" | "on-hold";
-  priority: "low" | "medium" | "high" | "urgent";
-  companyId: string;
-  clientId: string;
-  assignedEmployees: string[];
-  startDate: Date;
-  endDate?: Date;
-  budget?: number;
-  actualCost?: number;
+  client: {
+    id: string;
+    name: string;
+  };
+  company: {
+    id: string;
+    name: string;
+  };
+  status: "Planning" | "In Progress" | "Testing" | "Blocked" | "Deploying" | "Completed";
+  priority: "Critical" | "High" | "Medium" | "Low";
+  phase: string;
   progress: number;
+  budget: number;
+  spent: number;
+  startDate: string;
+  endDate: string;
+  teamLead: string;
+  teamSize: number;
+  milestones: number;
+  completedMilestones: number;
+  nextMilestone: string;
+  risk: "Low" | "Medium" | "High";
+  tags: string[];
   createdAt: Date;
   updatedAt?: Date;
   createdBy: string;
@@ -71,31 +99,58 @@ export type Project = {
 
 export type Client = {
   _id?: string;
+  id: string;
   name: string;
-  email: string;
-  phone?: string;
-  company?: string;
-  address?: string;
+  industry: string;
+  priority: "Critical" | "High" | "Medium" | "Low";
+  projects: number;
+  activeProjects: number;
+  totalValue: number;
+  lastContact: string;
+  satisfaction: number;
+  status: "Active" | "Inactive";
+  contact: {
+    email: string;
+    phone: string;
+    person: string;
+  };
+  location: string;
+  joinDate: string;
+  password?: string;
   notes?: string;
-  status: "active" | "inactive";
   createdAt: Date;
   updatedAt?: Date;
   createdBy: string;
-  companyId: string;
+  companyId?: string;
 };
 
 export type Task = {
   _id?: string;
+  id: string;
   title: string;
-  description?: string;
-  status: "todo" | "in-progress" | "completed";
-  priority: "low" | "medium" | "high";
-  projectId: string;
+  project: string;
+  client: string;
+  description: string;
+  status: "Pending" | "In Progress" | "Completed" | "Blocked";
+  priority: "Critical" | "High" | "Medium" | "Low";
+  dueDate: string;
+  progress: number;
+  assignedBy: string;
   assignedTo: string;
-  estimatedHours?: number;
-  actualHours?: number;
-  dueDate?: Date;
-  completedAt?: Date;
+  estimatedHours: number;
+  loggedHours: number;
+  deliverables: string[];
+  submittedFiles: {
+    name: string;
+    size: string;
+    uploadDate: string;
+  }[];
+  aiReview: {
+    status: "Not Started" | "Pending" | "Approved" | "Needs Revision";
+    feedback: string | null;
+    score?: number;
+    reviewDate?: string;
+  };
   createdAt: Date;
   updatedAt?: Date;
   createdBy: string;
@@ -121,9 +176,16 @@ export async function updateOwnerProfile(email: string, updates: Partial<OwnerPr
 }
 
 // Company Profile Functions
-export async function createCompanyProfile(profile: CompanyProfile) {
+export async function createCompanyProfile(profile: Omit<CompanyProfile, '_id'>) {
   const { db } = await connectToDatabase();
-  return await db.collection("companies").insertOne(profile);
+  const newProfile = {
+    ...profile,
+    id: profile.id || `COMP-${Date.now()}`,
+    createdAt: new Date(),
+    status: profile.status || "Active" as const,
+    verified: profile.verified ?? false
+  };
+  return await db.collection("companies").insertOne(newProfile);
 }
 
 export async function getCompanyProfile(email: string) {
@@ -133,7 +195,7 @@ export async function getCompanyProfile(email: string) {
 
 export async function getAllCompanies() {
   const { db } = await connectToDatabase();
-  return await db.collection("companies").find({ status: "active" }).toArray();
+  return await db.collection("companies").find({ status: "Active" }).toArray();
 }
 
 export async function updateCompanyProfile(email: string, updates: Partial<CompanyProfile>) {
@@ -157,7 +219,10 @@ export async function getEmployeeProfile(email: string) {
 
 export async function getEmployeesByCompany(companyEmail: string) {
   const { db } = await connectToDatabase();
-  return await db.collection("employees").find({ companyEmail, status: "active" }).toArray();
+  return await db.collection("employees").find({ 
+    companyEmail: companyEmail, 
+    status: "active" 
+  }).toArray();
 }
 
 export async function updateEmployeeProfile(email: string, updates: Partial<EmployeeProfile>) {
@@ -171,16 +236,20 @@ export async function updateEmployeeProfile(email: string, updates: Partial<Empl
 // Project Functions
 export async function createProject(project: Omit<Project, '_id'>) {
   const { db } = await connectToDatabase();
-  return await db.collection("projects").insertOne({
+  const newProject = {
     ...project,
+    id: project.id || `PRJ-${Date.now()}`,
     createdAt: new Date(),
-    progress: 0
-  });
+    progress: project.progress || 0,
+    spent: project.spent || 0,
+    completedMilestones: project.completedMilestones || 0
+  };
+  return await db.collection("projects").insertOne(newProject);
 }
 
 export async function getProjectsByCompany(companyId: string) {
   const { db } = await connectToDatabase();
-  return await db.collection("projects").find({ companyId }).toArray();
+  return await db.collection("projects").find({ "company.id": companyId }).toArray();
 }
 
 export async function getAllProjects() {
@@ -206,16 +275,29 @@ export async function updateProject(projectId: string, updates: Partial<Project>
 // Client Functions
 export async function createClient(client: Omit<Client, '_id'>) {
   const { db } = await connectToDatabase();
-  return await db.collection("clients").insertOne({
+  const newClient = {
     ...client,
+    id: client.id || `CLI-${Date.now()}`,
     createdAt: new Date(),
-    status: "active"
-  });
+    status: client.status || "Active" as const,
+    projects: client.projects || 0,
+    activeProjects: client.activeProjects || 0,
+    totalValue: client.totalValue || 0,
+    satisfaction: client.satisfaction || 0,
+    lastContact: client.lastContact || new Date().toISOString().split('T')[0],
+    joinDate: client.joinDate || new Date().toISOString().split('T')[0]
+  };
+  return await db.collection("clients").insertOne(newClient);
 }
 
 export async function getClientsByCompany(companyId: string) {
   const { db } = await connectToDatabase();
-  return await db.collection("clients").find({ companyId }).toArray();
+  return await db.collection("clients").find({ 
+    $or: [
+      { companyId: companyId },
+      { "company.id": companyId }
+    ]
+  }).toArray();
 }
 
 export async function getAllClients() {
@@ -235,16 +317,27 @@ export async function updateClient(clientId: string, updates: Partial<Client>) {
 // Task Functions
 export async function createTask(task: Omit<Task, '_id'>) {
   const { db } = await connectToDatabase();
-  return await db.collection("tasks").insertOne({
+  const newTask = {
     ...task,
+    id: task.id || `TASK-${Date.now()}`,
     createdAt: new Date(),
-    status: "todo"
-  });
+    status: task.status || "Pending" as const,
+    progress: task.progress || 0,
+    loggedHours: task.loggedHours || 0,
+    submittedFiles: task.submittedFiles || [],
+    aiReview: task.aiReview || { status: "Not Started" as const, feedback: null }
+  };
+  return await db.collection("tasks").insertOne(newTask);
 }
 
 export async function getTasksByProject(projectId: string) {
   const { db } = await connectToDatabase();
-  return await db.collection("tasks").find({ projectId }).toArray();
+  return await db.collection("tasks").find({ 
+    $or: [
+      { projectId: projectId },
+      { project: projectId }
+    ]
+  }).toArray();
 }
 
 export async function getTasksByEmployee(employeeEmail: string) {

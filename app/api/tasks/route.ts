@@ -36,63 +36,49 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const projectId = url.searchParams.get('projectId');
-    const employeeEmail = url.searchParams.get('employeeEmail');    let tasks: any[] = [];
+    const employeeEmail = url.searchParams.get('employeeEmail');
+
+    let tasks: any[] = [];
+    const { db } = await connectToDatabase();
+
     if (projectId) {
-      tasks = await getTasksByProject(projectId);
+      tasks = await db.collection("tasks").find({ project: projectId }).toArray();
     } else if (employeeEmail && auth.user?.userType === "employee" && auth.user.email === employeeEmail) {
-      tasks = await getTasksByEmployee(employeeEmail);
+      tasks = await db.collection("tasks").find({ assignedTo: employeeEmail }).toArray();
     } else if (auth.user?.userType === "employee") {
-      tasks = await getTasksByEmployee(auth.user.email);
-    } else {
-      // For owners and companies, get all tasks or tasks by project
-      const { db } = await connectToDatabase();
-      if (auth.user?.userType === "owner") {
-        tasks = await db.collection("tasks").find({}).toArray();
-      } else if (auth.user?.userType === "company") {
-        // Get tasks for projects belonging to this company
-        const companyProfile = await db.collection("companies").findOne({ email: auth.user.email });
-        const projects = await db.collection("projects").find({ 
-          companyId: companyProfile?._id?.toString() || auth.user.email 
-        }).toArray();
-        const projectIds = projects.map(p => p._id?.toString()).filter(Boolean);
-        tasks = await db.collection("tasks").find({ 
-          projectId: { $in: projectIds }
-        }).toArray();
-      } else {
-        tasks = [];
-      }
+      tasks = await db.collection("tasks").find({ assignedTo: auth.user.email }).toArray();
+    } else if (auth.user?.userType === "owner") {
+      tasks = await db.collection("tasks").find({}).toArray();
+    } else if (auth.user?.userType === "company") {
+      // Get tasks for projects belonging to this company
+      const companyProfile = await db.collection("companies").findOne({ email: auth.user.email });
+      const projects = await db.collection("projects").find({ 
+        "company.id": companyProfile?.id || companyProfile?._id?.toString()
+      }).toArray();
+      const projectNames = projects.map(p => p.name);
+      tasks = await db.collection("tasks").find({ 
+        project: { $in: projectNames }
+      }).toArray();
     }
 
-    // Add project and employee details to each task
-    const { db } = await connectToDatabase();
-    const tasksWithDetails = await Promise.all(
-      tasks.map(async (task) => {
-        const { ObjectId } = await import("mongodb");
-        const project = await db.collection("projects").findOne({ 
-          _id: new ObjectId(task.projectId) 
-        });
-        const employee = await db.collection("employees").findOne({ 
-          email: task.assignedTo 
-        });
-        
-        return {
-          ...task,
-          id: task._id?.toString(),
-          projectName: project?.title || "Unknown Project",
-          employeeName: employee?.fullName || task.assignedTo
-        };
-      })
-    );
+    // Transform tasks to match frontend expectations
+    const transformedTasks = tasks.map((task: any) => ({
+      ...task,
+      id: task.id || task._id?.toString(),
+      // Ensure all required fields exist with defaults
+      progress: task.progress || 0,
+      loggedHours: task.loggedHours || 0,
+      estimatedHours: task.estimatedHours || 0,
+      deliverables: task.deliverables || [],
+      submittedFiles: task.submittedFiles || [],
+      aiReview: task.aiReview || { status: "Not Started", feedback: null }
+    }));
 
-    return NextResponse.json({ tasks: tasksWithDetails });
+    return NextResponse.json({ tasks: transformedTasks });
 
   } catch (error) {
     console.error("Error fetching tasks:", error);
-    return NextResponse.json({ 
-      error: "Failed to fetch tasks" 
-    }, { 
-      status: 500 
-    });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -105,87 +91,88 @@ export async function POST(req: NextRequest) {
     }
 
     // Only owners and companies can create tasks
-    if (auth.user?.userType === "employee") {
+    if (!["owner", "company"].includes(auth.user?.userType)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const data = await req.json();
-    const { title, description, projectId, assignedTo, estimatedHours, dueDate, priority } = data;
-
-    if (!title || !projectId || !assignedTo) {
-      return NextResponse.json({ 
-        error: "Title, project ID, and assigned employee are required" 
-      }, { 
-        status: 400 
-      });
-    }
-
-    // Verify project access for companies
-    if (auth.user?.userType === "company") {
-      const { db } = await connectToDatabase();
-      const { ObjectId } = await import("mongodb");
-      const project = await db.collection("projects").findOne({ 
-        _id: new ObjectId(projectId) 
-      });
-
-      if (!project) {
-        return NextResponse.json({ error: "Project not found" }, { status: 404 });
-      }
-
-      const companyProfile = await db.collection("companies").findOne({ email: auth.user.email });
-      if (project.companyId !== companyProfile?._id?.toString() && project.companyId !== auth.user.email) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
-
-    const task: Omit<Task, '_id'> = {
-      title,
-      description,
-      status: "todo",
-      priority: priority || "medium",
-      projectId,
-      assignedTo,
+    const body = await req.json();
+    const { 
+      title, 
+      project, 
+      client, 
+      description, 
+      status, 
+      priority, 
+      dueDate, 
+      assignedBy, 
+      assignedTo, 
       estimatedHours,
-      dueDate: dueDate ? new Date(dueDate) : undefined,
+      deliverables 
+    } = body;
+
+    if (!title || !project || !client || !assignedTo) {
+      return NextResponse.json({ 
+        error: "Missing required fields: title, project, client, assignedTo" 
+      }, { status: 400 });
+    }
+
+    // Generate task ID
+    const taskId = `TASK-${Date.now()}`;
+
+    const taskData: Omit<Task, '_id'> = {
+      id: taskId,
+      title,
+      project,
+      client,
+      description: description || "",
+      status: status || "Pending",
+      priority: priority || "Medium",
+      dueDate: dueDate || "",
+      progress: 0,
+      assignedBy: assignedBy || auth.user?.email || "",
+      assignedTo,
+      estimatedHours: estimatedHours || 0,
+      loggedHours: 0,
+      deliverables: deliverables || [],
+      submittedFiles: [],
+      aiReview: {
+        status: "Not Started",
+        feedback: null
+      },
       createdAt: new Date(),
       createdBy: auth.user?.email || ""
     };
 
-    const result = await createTask(task);
+    const result = await createTask(taskData);
+
+    // Return the created task
+    const { db } = await connectToDatabase();
+    const createdTask = await db.collection("tasks").findOne({ _id: result.insertedId });
 
     return NextResponse.json({ 
-      success: true, 
-      taskId: result.insertedId,
-      message: "Task created successfully"
-    });
+      task: createdTask,
+      message: "Task created successfully" 
+    }, { status: 201 });
 
   } catch (error) {
     console.error("Error creating task:", error);
-    return NextResponse.json({ 
-      error: "Failed to create task" 
-    }, { 
-      status: 500 
-    });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-// PATCH - Update task
-export async function PATCH(req: NextRequest) {
+// PUT - Update task
+export async function PUT(req: NextRequest) {
   try {
     const auth = await verifyAuth(req);
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const data = await req.json();
-    const { taskId, updates } = data;
-
+    const url = new URL(req.url);
+    const taskId = url.searchParams.get('id');
+    
     if (!taskId) {
-      return NextResponse.json({ 
-        error: "Task ID is required" 
-      }, { 
-        status: 400 
-      });
+      return NextResponse.json({ error: "Task ID is required" }, { status: 400 });
     }
 
     // Check permissions
@@ -204,34 +191,61 @@ export async function PATCH(req: NextRequest) {
       if (task.assignedTo !== auth.user.email) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      // Limit what employees can update
-      const allowedFields = ['status', 'actualHours', 'completedAt'];
-      const filteredUpdates = Object.keys(updates)
-        .filter(key => allowedFields.includes(key))
-        .reduce((obj, key) => {
-          obj[key] = updates[key];
-          return obj;
-        }, {} as any);
-      
-      // If marking as completed, set completedAt
-      if (filteredUpdates.status === 'completed' && !filteredUpdates.completedAt) {
-        filteredUpdates.completedAt = new Date();
-      }
-      
-      await updateTask(taskId, filteredUpdates);
-    } else {
-      // Companies and owners can update more fields
-      await updateTask(taskId, updates);
     }
 
-    return NextResponse.json({ success: true });
+    const body = await req.json();
+    const updates = { ...body, updatedAt: new Date() };
+
+    const result = await updateTask(taskId, updates);
+    
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Task updated successfully" });
 
   } catch (error) {
     console.error("Error updating task:", error);
-    return NextResponse.json({ 
-      error: "Failed to update task" 
-    }, { 
-      status: 500 
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// DELETE - Delete task
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    // Only owners and companies can delete tasks
+    if (!["owner", "company"].includes(auth.user?.userType)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const url = new URL(req.url);
+    const taskId = url.searchParams.get('id');
+    
+    if (!taskId) {
+      return NextResponse.json({ error: "Task ID is required" }, { status: 400 });
+    }
+
+    const { db } = await connectToDatabase();
+    const { ObjectId } = await import("mongodb");
+    
+    // Delete the task
+    const result = await db.collection("tasks").deleteOne({ 
+      _id: new ObjectId(taskId) 
     });
+    
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Task deleted successfully" });
+
+  } catch (error) {
+    console.error("Error deleting task:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
