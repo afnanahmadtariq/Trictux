@@ -20,6 +20,9 @@ import {
   Trash2,
   ArrowUpRight,
   FolderKanban,
+  Calendar,
+  MapPin,
+  AlertTriangle,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
@@ -28,6 +31,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 const clients = [
   {
@@ -113,6 +117,10 @@ export default function ClientsPage() {
   const [selectedPriority, setSelectedPriority] = useState("All")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [clientList, setClientList] = useState(clients)
@@ -152,13 +160,22 @@ export default function ClientsPage() {
 
     fetchClients()
   }, [])
-
   const [newClient, setNewClient] = useState({
     name: "",
     industry: "",
     priority: "Medium",
     email: "",
     password: "",
+    phone: "",
+    location: "",
+    notes: ""
+  })
+
+  const [editClient, setEditClient] = useState({
+    name: "",
+    industry: "",
+    priority: "Medium",
+    email: "",
     phone: "",
     location: "",
     notes: ""
@@ -251,10 +268,161 @@ export default function ClientsPage() {
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive"
       })
-      console.error("Error adding client:", error)
+      console.error("Error adding client:", error)    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleViewClient = (client: any) => {
+    setSelectedClient(client)
+    setViewDialogOpen(true)
+  }
+
+  const handleEditClient = (client: any) => {
+    setSelectedClient(client)
+    setEditClient({
+      name: client.name,
+      industry: client.industry,
+      priority: client.priority,
+      email: client.contact.email,
+      phone: client.contact.phone,
+      location: client.location,
+      notes: client.notes || ""
+    })
+    setEditDialogOpen(true)
+  }
+
+  const handleUpdateClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!editClient.name || !editClient.industry || !editClient.email) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      })
+      return
+    }    try {
+      setIsSubmitting(true)
+      
+      const response = await fetch(`/api/clients/${(selectedClient as any)._id || selectedClient.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: editClient.name,
+          industry: editClient.industry,
+          priority: editClient.priority,
+          contact: {
+            email: editClient.email,
+            phone: editClient.phone,
+            person: editClient.name
+          },
+          location: editClient.location,
+          notes: editClient.notes
+        }),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Client updated",
+          description: `${editClient.name} has been updated successfully.`
+        })        // Update the client in the list
+        setClientList(clientList.map(client => 
+          ((client as any)._id || client.id) === ((selectedClient as any)._id || selectedClient.id)
+            ? {
+                ...client,
+                name: editClient.name,
+                industry: editClient.industry,
+                priority: editClient.priority,
+                contact: {
+                  ...client.contact,
+                  email: editClient.email,
+                  phone: editClient.phone,
+                  person: editClient.name
+                },
+                location: editClient.location,
+                notes: editClient.notes
+              }
+            : client
+        ))
+        
+        setEditDialogOpen(false)
+        setSelectedClient(null)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update client. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      })
+      console.error("Error updating client:", error)    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteClient = async () => {
+    if (!selectedClient) return
+
+    try {
+      setIsSubmitting(true)
+      
+      const response = await fetch(`/api/clients/${(selectedClient as any)._id || selectedClient.id}`, {
+        method: "DELETE",
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        toast({
+          title: "Client deleted",
+          description: `${selectedClient.name} has been deactivated successfully.`
+        })        // Remove the client from the list
+        setClientList(clientList.filter(client => ((client as any)._id || client.id) !== ((selectedClient as any)._id || selectedClient.id)))
+        
+        setDeleteDialogOpen(false)
+        setSelectedClient(null)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete client. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      })
+      console.error("Error deleting client:", error)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setEditClient({
+      ...editClient,
+      [name]: value
+    })
+  }
+
+  const handleEditSelectChange = (value: string) => {
+    setEditClient({
+      ...editClient,
+      priority: value
+    })
   }
 
   const filteredClients = clientList.filter((client) => {
@@ -410,8 +578,276 @@ export default function ClientsPage() {
                     </Button>
                   </DialogFooter>
                 </form>
+              </DialogContent>            </Dialog>
+
+            {/* Edit Client Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <form onSubmit={handleUpdateClient}>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Edit className="h-5 w-5 text-blue-600" />
+                      Edit Client
+                    </DialogTitle>
+                    <DialogDescription>
+                      Update the client information below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="editName">Client Name *</Label>
+                        <Input
+                          id="editName"
+                          name="name"
+                          placeholder="Enter client name"
+                          value={editClient.name}
+                          onChange={handleEditInputChange}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="editIndustry">Industry *</Label>
+                        <Input
+                          id="editIndustry"
+                          name="industry"
+                          placeholder="e.g., Technology"
+                          value={editClient.industry}
+                          onChange={handleEditInputChange}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Priority Level</Label>
+                      <Select value={editClient.priority} onValueChange={handleEditSelectChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Critical">Critical</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="Low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="editEmail">Email Address *</Label>
+                        <Input
+                          id="editEmail"
+                          name="email"
+                          type="email"
+                          placeholder="contact@company.com"
+                          value={editClient.email}
+                          onChange={handleEditInputChange}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="editPhone">Phone Number</Label>
+                        <Input
+                          id="editPhone"
+                          name="phone"
+                          placeholder="+1 (555) 123-4567"
+                          value={editClient.phone}
+                          onChange={handleEditInputChange}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editLocation">Location</Label>
+                      <Input
+                        id="editLocation"
+                        name="location"
+                        placeholder="City, State/Country"
+                        value={editClient.location}
+                        onChange={handleEditInputChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editNotes">Notes</Label>
+                      <Textarea
+                        id="editNotes"
+                        name="notes"
+                        placeholder="Additional notes about the client..."
+                        value={editClient.notes}
+                        onChange={handleEditInputChange}
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="bg-gradient-to-r from-blue-500 to-purple-600"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Updating..." : "Update Client"}
+                    </Button>
+                  </DialogFooter>
+                </form>
               </DialogContent>
             </Dialog>
+
+            {/* View Client Details Dialog */}
+            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-blue-600" />
+                    Client Details
+                  </DialogTitle>
+                  <DialogDescription>
+                    Complete information about {selectedClient?.name}
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedClient && (
+                  <div className="py-4 space-y-6">
+                    {/* Header Info */}
+                    <div className="flex items-start justify-between p-4 bg-slate-50 rounded-lg">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-slate-900">{selectedClient.name}</h3>
+                        <p className="text-slate-600">{selectedClient.industry}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge
+                            variant={
+                              selectedClient.priority === "Critical"
+                                ? "destructive"
+                                : selectedClient.priority === "High"
+                                  ? "default"
+                                  : "secondary"
+                            }
+                          >
+                            {selectedClient.priority} Priority
+                          </Badge>
+                          <Badge variant="outline" className="text-green-600">
+                            {selectedClient.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contact Information */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-slate-900">Contact Information</h4>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <Mail className="h-4 w-4 text-slate-500" />
+                          <span className="text-slate-700">{selectedClient.contact?.email}</span>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <Phone className="h-4 w-4 text-slate-500" />
+                          <span className="text-slate-700">{selectedClient.contact?.phone || "Not provided"}</span>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <MapPin className="h-4 w-4 text-slate-500" />
+                          <span className="text-slate-700">{selectedClient.location || "Not provided"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project Statistics */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-slate-900">Project Overview</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-blue-600">Total Projects</p>
+                          <p className="text-2xl font-bold text-blue-900">{selectedClient.projects || 0}</p>
+                        </div>
+                        <div className="p-4 bg-green-50 rounded-lg">
+                          <p className="text-sm text-green-600">Active Projects</p>
+                          <p className="text-2xl font-bold text-green-900">{selectedClient.activeProjects || 0}</p>
+                        </div>
+                        <div className="p-4 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-purple-600">Total Value</p>
+                          <p className="text-2xl font-bold text-purple-900">${(selectedClient.totalValue || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="p-4 bg-yellow-50 rounded-lg">
+                          <p className="text-sm text-yellow-600">Satisfaction</p>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            <p className="text-2xl font-bold text-yellow-900">{selectedClient.satisfaction || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional Information */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-slate-900">Additional Information</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="text-sm text-slate-600">Join Date</p>
+                            <p className="font-medium">{selectedClient.joinDate}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="text-sm text-slate-600">Last Contact</p>
+                            <p className="font-medium">{selectedClient.lastContact}</p>
+                          </div>
+                        </div>
+                      </div>
+                      {selectedClient.notes && (
+                        <div className="p-3 bg-slate-50 rounded-lg">
+                          <p className="text-sm text-slate-600 mb-1">Notes</p>
+                          <p className="text-slate-700">{selectedClient.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setViewDialogOpen(false)
+                      handleEditClient(selectedClient)
+                    }}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600"
+                  >
+                    Edit Client
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    Delete Client
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete <strong>{selectedClient?.name}</strong>? 
+                    This action will deactivate the client and cannot be undone. All associated 
+                    projects will be preserved but the client will no longer be accessible.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteClient}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Deleting..." : "Delete Client"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </div>
@@ -567,17 +1003,24 @@ export default function ClientsPage() {
                         <Button variant="ghost" size="sm">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2">
-                          <Eye className="h-4 w-4" />
-                          View Details
+                      </DropdownMenuTrigger>                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/clients/${(client as any)._id || client.id}`} className="gap-2 flex w-full">
+                            <Eye className="h-4 w-4" />
+                            View Details
+                          </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2">
+                        <DropdownMenuItem className="gap-2" onClick={() => handleEditClient(client)}>
                           <Edit className="h-4 w-4" />
                           Edit Client
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2 text-red-600">
+                        <DropdownMenuItem 
+                          className="gap-2 text-red-600" 
+                          onClick={() => {
+                            setSelectedClient(client)
+                            setDeleteDialogOpen(true)
+                          }}
+                        >
                           <Trash2 className="h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
@@ -619,14 +1062,18 @@ export default function ClientsPage() {
                         <p className="text-xl font-bold text-slate-900">{client.satisfaction}</p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Actions */}
+                  </div>                  {/* Actions */}
                   <div className="flex gap-2 pt-3 border-t border-slate-200">
-                    <Button variant="outline" size="sm" className="flex-1 gap-2">
-                      <Eye className="h-4 w-4" />
-                      View
-                    </Button>
+                    <Link href={`/clients/${(client as any)._id || client.id}`} className="flex-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View
+                      </Button>
+                    </Link>
                     <Link href={`/projects?client=${client.id}`} className="flex-1">
                       <Button size="sm" className="w-full gap-2">
                         <ArrowUpRight className="h-4 w-4" />
